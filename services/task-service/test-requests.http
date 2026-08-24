@@ -1,0 +1,65 @@
+### ==============================================================================
+### Task Service Direct REST Client API Testing
+### Host: http://localhost:8082
+### Note: Replace {{jwt_token}} with the token obtained from Identity Service login
+### ==============================================================================
+
+@baseUrl = http://localhost:8082
+@jwt_token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGV4Lm1vcmdhbkB0YXNrZmxvdy5kZXYiLCJ1c2VySWQiOiJ1c3ItMSIsIm5hbWUiOiJBbGV4IE1vcmdhbiIsInJvbGUiOiJMZWFkIEFyY2hpdGVjdCIsImlhdCI6MTYwOTQ1OTIwMCwiZXhwIjoyNTU2MTE1MjAwfQ.test
+
+### 1. Get or Initialize Default Board (Public)
+GET {{baseUrl}}/api/boards/default
+
+### 2. Get All Boards
+GET {{baseUrl}}/api/boards
+Authorization: Bearer {{jwt_token}}
+
+### 3. Get All Tasks for Default Board
+GET {{baseUrl}}/api/tasks/board/board-default
+Authorization: Bearer {{jwt_token}}
+
+### 4. Create a New Task
+POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "boardId": "board-default",
+  "columnId": "col-todo",
+  "title": "Setup Prometheus Metrics Dashboard",
+  "description": "Expose microservice memory, GC and throughput metrics.",
+  "priority": "HIGH",
+  "estimatedHours": 6.5,
+  "coverColor": "#3b82f6"
+}
+
+### 5. Move Task to Another Column (e.g. In Progress)
+PATCH {{baseUrl}}/api/tasks/task-1/move
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "targetColumnId": "col-in-progress",
+  "targetIndex": 0
+}
+
+### 6. Add Comment to Task
+POST {{baseUrl}}/api/tasks/task-1/comments
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "text": "Branch feature/prometheus-metrics is created and ready for review!"
+}
+
+### 7. Add Checklist Item
+POST {{baseUrl}}/api/tasks/task-1/checklist
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "text": "Add Grafana dashboard JSON config"
+}
+
+### 8. Healthcheck
+GET {{baseUrl}}/actuator/health

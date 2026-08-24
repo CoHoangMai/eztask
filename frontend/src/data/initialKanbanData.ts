@@ -77,7 +77,7 @@ export const DEFAULT_AUTOMATIONS: AutomationRule[] = [
 export const INITIAL_BOARDS: Board[] = [
   {
     id: 'board-product-launch',
-    title: '🚀 Q3 Product Launch & Growth',
+    title: 'Q3 Product Launch & Growth',
     description: 'Cross-functional sprint board for the upcoming major product launch, design assets, and marketing roll-out.',
     category: 'product',
     createdAt: '2026-08-01T08:00:00.000Z',

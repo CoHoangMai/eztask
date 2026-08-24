@@ -1,0 +1,23 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Apache Maven Wrapper Executable Shell Script (Zero-Dependency Edition)
+# ----------------------------------------------------------------------------
+
+MAVEN_VERSION="3.9.6"
+MAVEN_DIR="$HOME/.m2/wrapper/dists/apache-maven-$MAVEN_VERSION/apache-maven-$MAVEN_VERSION"
+MVN_BIN="$MAVEN_DIR/bin/mvn"
+
+if [ -x "$MVN_BIN" ]; then
+    exec "$MVN_BIN" "$@"
+fi
+
+echo "[INFO] Downloading Apache Maven $MAVEN_VERSION..."
+mkdir -p "$HOME/.m2/wrapper/dists"
+ZIP_FILE="$HOME/.m2/wrapper/dists/maven.zip"
+curl -sL "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_VERSION/apache-maven-$MAVEN_VERSION-bin.zip" -o "$ZIP_FILE"
+
+unzip -q "$ZIP_FILE" -d "$HOME/.m2/wrapper/dists/apache-maven-$MAVEN_VERSION"
+rm -f "$ZIP_FILE"
+chmod +x "$MVN_BIN"
+
+exec "$MVN_BIN" "$@"
