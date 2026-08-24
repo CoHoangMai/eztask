@@ -29,6 +29,9 @@ class TaskServiceTest {
     @Mock
     private BoardRepository boardRepository;
 
+    @Mock
+    private TaskEventProducer taskEventProducer;
+
     @InjectMocks
     private TaskService taskService;
 

@@ -293,7 +293,7 @@ export const INITIAL_BOARDS: Board[] = [
   },
   {
     id: 'board-marketing-campaign',
-    title: '📣 Global Marketing & Content Calendar',
+    title: ' Global Marketing & Content Calendar',
     description: 'Campaign tracking, editorial calendar, social promotions, and newsletter editions.',
     category: 'marketing',
     createdAt: '2026-08-05T09:00:00.000Z',

@@ -8,11 +8,22 @@ spring:
     mongodb:
       uri: ${SPRING_DATA_MONGODB_URI:mongodb://mongoadmin:mongopassword@localhost:27017/task_db?authSource=admin}
       auto-index-creation: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+        acks: all
+        retries: 3
+    template:
+      default-topic: task-events
 
 # JWT Configuration (Shares secret with Identity Service for stateless signature verification)
 app:
   jwt:
-    secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
+    secret: ${JWT_SECRET:TaskFlowEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
 
 # Swagger OpenAPI Documentation
 springdoc:

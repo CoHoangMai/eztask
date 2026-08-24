@@ -29,6 +29,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Apache Kafka for Event-Driven Microservices Architecture -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Spring Data MongoDB for Flexible Kanban Document Model -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

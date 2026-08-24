@@ -1,6 +1,7 @@
 package com.eztask.task.service;
 
 import com.eztask.task.dto.TaskDto;
+import com.eztask.task.dto.event.TaskEventType;
 import com.eztask.task.model.*;
 import com.eztask.task.repository.BoardRepository;
 import com.eztask.task.repository.TaskRepository;
@@ -19,6 +20,7 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
+    private final TaskEventProducer taskEventProducer;
 
     public List<Task> getTasksByBoard(String boardId) {
         return taskRepository.findByBoardId(boardId);
@@ -63,6 +65,9 @@ public class TaskService {
             }
         });
 
+        // Publish event to Kafka
+        taskEventProducer.sendTaskEvent(saved, TaskEventType.TASK_CREATED, "system", "New task created: " + saved.getTitle());
+
         return saved;
     }
 
@@ -79,11 +84,17 @@ public class TaskService {
         if (request.getCoverColor() != null) task.setCoverColor(request.getCoverColor());
 
         task.setUpdatedAt(Instant.now());
-        return taskRepository.save(task);
+        Task updated = taskRepository.save(task);
+
+        // Publish event to Kafka
+        taskEventProducer.sendTaskEvent(updated, TaskEventType.TASK_UPDATED, "system", "Task details updated: " + updated.getTitle());
+
+        return updated;
     }
 
     public Task moveTask(String id, TaskDto.MoveTaskRequest request) {
         Task task = getTaskById(id);
+        String oldColumnId = task.getColumnId();
         String newColumnId = request.getTargetColumnId();
 
         task.setColumnId(newColumnId);
@@ -109,6 +120,9 @@ public class TaskService {
             boardRepository.save(board);
         });
 
+        // Publish event to Kafka
+        taskEventProducer.sendTaskEvent(saved, TaskEventType.TASK_MOVED, "system", "Task moved from " + oldColumnId + " to " + newColumnId);
+
         return saved;
     }
 
@@ -123,6 +137,9 @@ public class TaskService {
             boardRepository.save(board);
         });
         taskRepository.delete(task);
+
+        // Publish event to Kafka
+        taskEventProducer.sendTaskEvent(task, TaskEventType.TASK_DELETED, "system", "Task deleted: " + task.getTitle());
     }
 
     public Task addComment(String taskId, TaskDto.AddCommentRequest request, Assignee author) {
