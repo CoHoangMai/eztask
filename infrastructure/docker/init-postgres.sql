@@ -39,10 +39,10 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 -- Seed initial default users (Password hash is BCrypt for 'password123')
 INSERT INTO users (id, name, email, password_hash, avatar_url, title_role) VALUES
-    (1, 'Alex Morgan', 'alex.morgan@eztask.dev', '$2a$12$e8Y6lB8xZJq19tB7m1G3OeqhF/QW12iWjF72KzC5tM6/k79zQY1/y', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', 'Lead Architect'),
-    (2, 'Sarah Chen', 'sarah.chen@eztask.dev', '$2a$12$e8Y6lB8xZJq19tB7m1G3OeqhF/QW12iWjF72KzC5tM6/k79zQY1/y', 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80', 'Frontend Engineer'),
-    (3, 'David Kim', 'david.kim@eztask.dev', '$2a$12$e8Y6lB8xZJq19tB7m1G3OeqhF/QW12iWjF72KzC5tM6/k79zQY1/y', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', 'Backend Engineer'),
-    (4, 'Elena Rostova', 'elena.rostova@eztask.dev', '$2a$12$e8Y6lB8xZJq19tB7m1G3OeqhF/QW12iWjF72KzC5tM6/k79zQY1/y', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', 'DevOps & Cloud Lead')
+    (1, 'Alex Morgan', 'alex.morgan@eztask.dev', '$2a$12$j.gkwKDK/Id4KynxQmW9Ie3jXX/LVgHirJUYP5fDVtVNht7oNVMfK', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', 'Lead Architect'),
+    (2, 'Sarah Chen', 'sarah.chen@eztask.dev', '$2a$12$j.gkwKDK/Id4KynxQmW9Ie3jXX/LVgHirJUYP5fDVtVNht7oNVMfK', 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80', 'Frontend Engineer'),
+    (3, 'David Kim', 'david.kim@eztask.dev', '$2a$12$j.gkwKDK/Id4KynxQmW9Ie3jXX/LVgHirJUYP5fDVtVNht7oNVMfK', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', 'Backend Engineer'),
+    (4, 'Elena Rostova', 'elena.rostova@eztask.dev', '$2a$12$j.gkwKDK/Id4KynxQmW9Ie3jXX/LVgHirJUYP5fDVtVNht7oNVMfK', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', 'DevOps & Cloud Lead')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_roles (user_id, role_id) VALUES
@@ -51,3 +51,8 @@ INSERT INTO user_roles (user_id, role_id) VALUES
     (3, 1), -- David: ROLE_USER
     (4, 3)  -- Elena: ROLE_MANAGER
 ON CONFLICT DO NOTHING;
+
+-- Reset identity sequence counters so new user registrations don't collide with seeded IDs
+SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM users));
+SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 1) FROM roles));
+

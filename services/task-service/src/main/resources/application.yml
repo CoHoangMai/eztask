@@ -23,7 +23,7 @@ spring:
 # JWT Configuration (Shares secret with Identity Service for stateless signature verification)
 app:
   jwt:
-    secret: ${JWT_SECRET:TaskFlowEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
+    secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
 
 # Swagger OpenAPI Documentation
 springdoc:

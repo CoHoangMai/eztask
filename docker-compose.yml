@@ -149,7 +149,7 @@ services:
       IDENTITY_SERVICE_URL: http://identity-service:8081
       TASK_SERVICE_URL: http://task-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8083
-      JWT_SECRET: eztaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!
+      JWT_SECRET: EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!
     depends_on:
       - redis-cache
     networks:

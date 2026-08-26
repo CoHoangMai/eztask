@@ -3,7 +3,6 @@ package com.eztask.task.service;
 import com.eztask.task.config.KafkaConfig;
 import com.eztask.task.dto.event.TaskEventPayload;
 import com.eztask.task.dto.event.TaskEventType;
-import com.eztask.task.model.Assignee;
 import com.eztask.task.model.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,15 +17,20 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 public class TaskEventProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public void sendTaskEvent(Task task, TaskEventType eventType, String actorId, String customMessage) {
         try {
-            List<String> assigneeIds = task.getAssignees() != null
-                    ? task.getAssignees().stream().map(Assignee::getId).toList()
-                    : Collections.emptyList();
+            List<String> assigneeIds = Collections.emptyList();
+            if (task.getAssignees() != null) {
+                assigneeIds = task.getAssignees().stream()
+                        .map(a -> a != null ? a.getId() : null)
+                        .filter(id -> id != null)
+                        .toList();
+            }
 
             String message = customMessage != null ? customMessage : buildDefaultMessage(task, eventType);
 
@@ -44,8 +48,9 @@ public class TaskEventProducer {
                     .timestamp(Instant.now())
                     .build();
 
-            log.info("Publishing event [{}] for task [{}] to Kafka topic [{}]", eventType, task.getId(), KafkaConfig.TASK_EVENTS_TOPIC);
-            kafkaTemplate.send(KafkaConfig.TASK_EVENTS_TOPIC, task.getId(), payload);
+            String taskId = task.getId() != null ? task.getId() : UUID.randomUUID().toString();
+            log.info("Publishing event [{}] for task [{}] to Kafka topic [{}]", eventType, taskId, KafkaConfig.TASK_EVENTS_TOPIC);
+            kafkaTemplate.send(KafkaConfig.TASK_EVENTS_TOPIC, taskId, (Object) payload);
         } catch (Exception e) {
             log.error("Failed to publish task event to Kafka for task [{}]: {}", task.getId(), e.getMessage());
         }

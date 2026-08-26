@@ -63,22 +63,24 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                     .getPayload();
 
             String email = claims.getSubject();
-            String id = claims.get("userId", String.class);
-            if (id == null) {
-                id = claims.get("id", String.class);
+            Object rawUserId = claims.get("userId");
+            if (rawUserId == null) {
+                rawUserId = claims.get("id");
             }
+            String id = rawUserId != null ? String.valueOf(rawUserId) : email;
             String name = claims.get("name", String.class);
             String role = claims.get("role", String.class);
             String avatar = claims.get("avatar", String.class);
 
             return UserPrincipal.builder()
-                    .id(id != null ? id : email)
+                    .id(id)
                     .email(email)
                     .name(name != null ? name : email)
-                    .role(role != null ? role : "Member")
+                    .role(role != null ? role : "USER")
                     .avatar(avatar)
                     .build();
         } catch (Exception e) {
+            logger.warn("Cannot extract principal from JWT: " + e.getMessage());
             return null;
         }
     }
