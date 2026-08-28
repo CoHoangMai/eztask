@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  main:
+    web-application-type: reactive
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        # 1. Identity Service - Public Auth & User Management
+        - id: identity-service-route
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**, /api/users/**
+          filters:
+            - name: AuthenticationFilter
+
+        # 2. Task Management Service - Core CRUD & Board Workflow
+        - id: task-service-route
+          uri: ${TASK_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/tasks/**, /api/boards/**, /api/columns/**
+          filters:
+            - name: AuthenticationFilter
+
+        # 3. Notification Service - REST Endpoints
+        - id: notification-service-route
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - name: AuthenticationFilter
+
+        # 4. Notification Service - Real-Time WebSocket & STOMP Proxy
+        - id: notification-websocket-route
+          uri: ${WS_NOTIFICATION_SERVICE_URL:ws://localhost:8083}
+          predicates:
+            - Path=/ws/**
+
+jwt:
+  secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    com.eztask.gateway: DEBUG
+    reactor.netty: INFO

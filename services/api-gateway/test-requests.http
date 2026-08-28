@@ -1,0 +1,51 @@
+### ==============================================================================
+### TASKFLOW CLOUD API GATEWAY (PORT 8080) TEST REQUESTS
+### ==============================================================================
+
+### 1. Actuator Health Check on Gateway
+GET http://localhost:8080/actuator/health
+Accept: application/json
+
+### 2. View Active Routes in Gateway
+GET http://localhost:8080/actuator/gateway/routes
+Accept: application/json
+
+### 3. Login via Gateway -> Routed to Identity Service (Port 8081)
+# @name login
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alex.morgan@eztask.dev",
+  "password": "password123"
+}
+
+### 4. Try Creating Task via Gateway WITHOUT Token -> Should Return 401 Unauthorized
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "boardId": "board-default",
+  "columnId": "col-todo",
+  "title": "Test Unauthorized Access",
+  "description": "Should fail at Gateway level",
+  "priority": "LOW"
+}
+
+### 5. Create Task via Gateway WITH Token -> Routed to Task Service (Port 8082)
+# Replace {{token}} with the token received from Request #3
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "boardId": "board-default",
+  "columnId": "col-todo",
+  "title": "Unified Gateway Routed Task",
+  "description": "Created via Port 8080 through Spring Cloud Gateway",
+  "priority": "HIGH"
+}
+
+### 6. Get All Tasks via Gateway
+GET http://localhost:8080/api/tasks
+Authorization: Bearer {{login.response.body.token}}

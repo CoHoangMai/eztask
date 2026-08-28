@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: identity-service-route
+          uri: ${IDENTITY_SERVICE_URL:http://identity-service:8081}
+          predicates:
+            - Path=/api/auth/**, /api/users/**
+          filters:
+            - name: AuthenticationFilter
+
+        - id: task-service-route
+          uri: ${TASK_SERVICE_URL:http://task-service:8082}
+          predicates:
+            - Path=/api/tasks/**, /api/boards/**, /api/columns/**
+          filters:
+            - name: AuthenticationFilter
+
+        - id: notification-service-route
+          uri: ${NOTIFICATION_SERVICE_URL:http://notification-service:8083}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - name: AuthenticationFilter
+
+        - id: notification-websocket-route
+          uri: ${WS_NOTIFICATION_SERVICE_URL:ws://notification-service:8083}
+          predicates:
+            - Path=/ws/**
