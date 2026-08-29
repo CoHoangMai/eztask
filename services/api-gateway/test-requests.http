@@ -32,8 +32,11 @@ Content-Type: application/json
   "priority": "LOW"
 }
 
-### 5. Create Task via Gateway WITH Token -> Routed to Task Service (Port 8082)
-# Replace {{token}} with the token received from Request #3
+### 5. Get Default Board via Gateway (Kanban Columns)
+GET http://localhost:8080/api/boards/default
+Authorization: Bearer {{login.response.body.token}}
+
+### 6. Create Task via Gateway WITH Token -> Routed to Task Service (Port 8082)
 POST http://localhost:8080/api/tasks
 Content-Type: application/json
 Authorization: Bearer {{login.response.body.token}}
@@ -42,10 +45,19 @@ Authorization: Bearer {{login.response.body.token}}
   "boardId": "board-default",
   "columnId": "col-todo",
   "title": "Unified Gateway Routed Task",
-  "description": "Created via Port 8080 through Spring Cloud Gateway",
+  "description": "Created via Port 8080 through Spring Cloud Gateway with Circuit Breaker",
   "priority": "HIGH"
 }
 
-### 6. Get All Tasks via Gateway
-GET http://localhost:8080/api/tasks
+### 7. Get Tasks in Board via Gateway
+GET http://localhost:8080/api/tasks/board/board-default
 Authorization: Bearer {{login.response.body.token}}
+
+### 8. Direct Test Circuit Breaker Fallback Endpoint (Identity)
+GET http://localhost:8080/fallback/identity
+
+### 9. Direct Test Circuit Breaker Fallback Endpoint (Task)
+GET http://localhost:8080/fallback/task
+
+### 10. Direct Test Circuit Breaker Fallback Endpoint (Notification)
+GET http://localhost:8080/fallback/notification

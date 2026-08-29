@@ -13,6 +13,8 @@ public class RouterValidator {
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
+            "/fallback",
+            "/fallback/",
             "/actuator",
             "/actuator/health",
             "/actuator/info",

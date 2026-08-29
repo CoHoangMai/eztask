@@ -37,6 +37,10 @@ spring:
             - Path=/api/auth/**, /api/users/**
           filters:
             - name: AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: identityCircuitBreaker
+                fallbackUri: forward:/fallback/identity
 
         # 2. Task Management Service - Core CRUD & Board Workflow
         - id: task-service-route
@@ -45,6 +49,10 @@ spring:
             - Path=/api/tasks/**, /api/boards/**, /api/columns/**
           filters:
             - name: AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: taskCircuitBreaker
+                fallbackUri: forward:/fallback/task
 
         # 3. Notification Service - REST Endpoints
         - id: notification-service-route
@@ -53,12 +61,48 @@ spring:
             - Path=/api/notifications/**
           filters:
             - name: AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: notificationCircuitBreaker
+                fallbackUri: forward:/fallback/notification
 
         # 4. Notification Service - Real-Time WebSocket & STOMP Proxy
         - id: notification-websocket-route
           uri: ${WS_NOTIFICATION_SERVICE_URL:ws://localhost:8083}
           predicates:
             - Path=/ws/**
+
+# Resilience4j Circuit Breaker & Time Limiter Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10000ms
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      identityCircuitBreaker:
+        base-config: default
+      taskCircuitBreaker:
+        base-config: default
+      notificationCircuitBreaker:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+        cancel-running-future: true
+    instances:
+      identityCircuitBreaker:
+        base-config: default
+      taskCircuitBreaker:
+        base-config: default
+      notificationCircuitBreaker:
+        base-config: default
 
 jwt:
   secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}

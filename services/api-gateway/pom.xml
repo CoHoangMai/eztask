@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.taskflow</groupId>
+    <groupId>com.eztask</groupId>
     <artifactId>api-gateway</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>api-gateway</name>
@@ -40,6 +40,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+
+        <!-- Spring Cloud CircuitBreaker with Resilience4j (Reactive Non-blocking) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
         </dependency>
 
         <!-- JJWT for Reactive Token Verification & Claims Extraction -->
