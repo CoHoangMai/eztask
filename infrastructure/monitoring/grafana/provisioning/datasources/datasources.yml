@@ -1,0 +1,21 @@
+apiVersion: 1
+
+datasources:
+  # 1. Prometheus Metrics Data Source
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "5s"
+      httpMethod: "POST"
+
+  # 2. Zipkin Distributed Tracing Data Source
+  - name: Zipkin
+    type: zipkin
+    access: proxy
+    url: http://zipkin:9411
+    isDefault: false
+    editable: false

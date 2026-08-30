@@ -84,10 +84,10 @@ export const INITIAL_BOARDS: Board[] = [
     updatedAt: '2026-08-20T08:00:00.000Z',
     columns: [
       { id: 'col-backlog', title: 'Ideas & Backlog', cardIds: ['card-101', 'card-102'], colorAccent: '#64748b' },
-      { id: 'col-todo', title: 'To Do (Ready)', cardIds: ['card-103', 'card-104'], colorAccent: '#3b82f6' },
+      { id: 'col-todo', title: 'To Do', cardIds: ['card-103', 'card-104'], colorAccent: '#3b82f6' },
       { id: 'col-in-progress', title: 'In Progress', cardIds: ['card-105', 'card-106'], limit: 4, colorAccent: '#f59e0b' },
       { id: 'col-review', title: 'Review & QA', cardIds: ['card-107'], colorAccent: '#8b5cf6' },
-      { id: 'col-done', title: 'Completed 🎉', cardIds: ['card-108', 'card-109'], colorAccent: '#10b981' }
+      { id: 'col-done', title: 'Completed', cardIds: ['card-108', 'card-109'], colorAccent: '#10b981' }
     ],
     cards: {
       'card-101': {

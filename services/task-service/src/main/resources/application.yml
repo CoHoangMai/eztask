@@ -33,7 +33,7 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
 
-# Observability & Metrics
+# Observability, Distributed Tracing & Metrics
 management:
   endpoints:
     web:
@@ -42,3 +42,18 @@ management:
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  level:
+    root: INFO
+    com.eztask.task: INFO

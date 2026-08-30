@@ -1,0 +1,9 @@
+target
+.idea
+.vscode
+*.log
+.git
+.mvn
+mvnw
+mvnw.cmd
+test-requests.http

@@ -369,7 +369,7 @@ export const App: React.FC = () => {
   // Workspace JSON Backup Export & Import Handlers
   const handleExportWorkspace = () => {
     exportWorkspaceToJSON(boards, automations);
-    setAutomationToast('📦 Workspace backup exported successfully as JSON file!');
+    setAutomationToast('Workspace backup exported successfully as JSON file!');
     setTimeout(() => setAutomationToast(null), 4000);
   };
 
@@ -387,7 +387,7 @@ export const App: React.FC = () => {
       setTimeout(() => setAutomationToast(null), 4000);
     } catch (err: any) {
       console.error('Import failed:', err);
-      setAutomationToast(`❌ Failed to import backup: ${err?.message || 'Invalid file'}`);
+      setAutomationToast(` Failed to import backup: ${err?.message || 'Invalid file'}`);
       setTimeout(() => setAutomationToast(null), 5000);
     }
   };
@@ -428,7 +428,7 @@ export const App: React.FC = () => {
     if (newCard.priority === 'urgent') {
       const urgentRule = automations.find(r => r.enabled && r.triggerEvent === 'card_created');
       if (urgentRule) {
-        setAutomationToast(`⚡ Butler Automation: Urgent card "${newCard.title}" created & alerted!`);
+        setAutomationToast(`Urgent card "${newCard.title}" created & alerted!`);
         setTimeout(() => setAutomationToast(null), 4000);
       }
     }
@@ -478,7 +478,7 @@ export const App: React.FC = () => {
         
         if (autoMoveRule && doneCol && updatedCard.columnId !== doneCol.id) {
           handleMoveCard(updatedCard.id, updatedCard.columnId, doneCol.id);
-          setAutomationToast(`⚡ Butler Automation: "${updatedCard.title}" checklist complete! Auto-moved to ${doneCol.title}.`);
+          setAutomationToast(`"${updatedCard.title}" checklist complete! Auto-moved to ${doneCol.title}.`);
           setTimeout(() => setAutomationToast(null), 4000);
         }
       }

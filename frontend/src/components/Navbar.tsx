@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Kanban size={18} className="text-white" />
           </div>
           <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-            eztask <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">Pro</span>
+            EzTask 
           </span>
         </div>
 

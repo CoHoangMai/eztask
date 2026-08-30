@@ -24,7 +24,7 @@ app:
     secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 Hours
 
-# Observability & Prometheus Metrics
+# Observability, Distributed Tracing & Prometheus Metrics
 management:
   endpoints:
     web:
@@ -35,3 +35,16 @@ management:
       show-details: always
     prometheus:
       enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  level:
+    root: INFO
+    com.eztask.identity: INFO

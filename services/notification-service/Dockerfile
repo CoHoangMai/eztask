@@ -1,12 +1,23 @@
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
+# Cache dependencies layer
+RUN mvn dependency:go-offline -B
 COPY src ./src
-# Build package skipping tests for fast docker build
-RUN ./mvnw clean package -DskipTests || mvn clean package -DskipTests
+RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine
+
+
+
+FROM eclipse-temurin:21-jre-alpine AS runner
 WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser:appgroup
+
 COPY --from=builder /app/target/*.jar app.jar
+
 EXPOSE 8083
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+
