@@ -19,8 +19,12 @@ public class BoardDto {
         @NotBlank(message = "Title is required")
         private String title;
 
+        private String workspaceId;
         private String description;
         private String category;
+        private String visibility;
+        private String teamId;
+        private List<String> memberIds;
         private List<BoardColumn> columns;
     }
 
@@ -30,8 +34,12 @@ public class BoardDto {
     @AllArgsConstructor
     public static class UpdateBoardRequest {
         private String title;
+        private String workspaceId;
         private String description;
         private String category;
+        private String visibility;
+        private String teamId;
+        private List<String> memberIds;
         private List<BoardColumn> columns;
     }
 }

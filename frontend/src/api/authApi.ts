@@ -11,6 +11,7 @@ export interface RegisterPayload {
   email: string;
   password?: string;
   role?: string;
+  avatar?: string;
 }
 
 export interface AuthResponse {
@@ -30,7 +31,7 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    if (response.token) {
+    if (response?.token) {
       setAuthToken(response.token);
     }
     return response;
@@ -42,9 +43,15 @@ export const authApi = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const response = await apiRequest<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: payload.name,
+        email: payload.email,
+        password: payload.password || 'Password123!',
+        role: payload.role || 'Software Engineer',
+        avatar: payload.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      }),
     });
-    if (response.token) {
+    if (response?.token) {
       setAuthToken(response.token);
     }
     return response;

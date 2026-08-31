@@ -32,7 +32,10 @@ public class User {
     private String avatar;
 
     @Column(name = "title_role")
-    private String role; // e.g. Lead Architect, Frontend Engineer
+    private String role; // e.g. Lead Architect, Product Designer
+
+    @Column(name = "department", length = 100)
+    private String department; // e.g. Engineering, Design, Management
 
     @Builder.Default
     @Column(name = "is_active")

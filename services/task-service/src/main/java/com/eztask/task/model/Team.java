@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -18,8 +17,8 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "boards")
-public class Board {
+@Document(collection = "teams")
+public class Team {
 
     @Id
     private String id;
@@ -27,31 +26,19 @@ public class Board {
     @Indexed
     private String workspaceId;
 
-    private String title;
+    private String name;
 
     private String description;
 
     @Builder.Default
-    private String category = "product";
+    private String color = "#3b82f6";
 
-    @Builder.Default
-    private String visibility = "workspace"; // "workspace" or "private"
-
-    private String teamId;
+    private String icon;
 
     @Builder.Default
     private List<String> memberIds = new ArrayList<>();
 
-    @Builder.Default
-    private List<BoardColumn> columns = new ArrayList<>();
-
-    private String ownerId;
-
     @CreatedDate
     @Builder.Default
     private Instant createdAt = Instant.now();
-
-    @LastModifiedDate
-    @Builder.Default
-    private Instant updatedAt = Instant.now();
 }

@@ -19,13 +19,21 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final TaskRepository taskRepository;
 
-    public List<Board> getAllBoards() {
-        List<Board> boards = boardRepository.findAll();
-        if (boards.isEmpty()) {
-            Board defaultBoard = createDefaultBoard();
-            boards.add(defaultBoard);
+    public List<Board> getAllBoards(String workspaceId) {
+        if (workspaceId != null && !workspaceId.isBlank()) {
+            return boardRepository.findByWorkspaceId(workspaceId);
         }
-        return boards;
+        return boardRepository.findAll();
+    }
+
+    public List<Board> getBoardsForUserInWorkspace(String workspaceId, String userId, String userRole, List<String> allowedBoardIds) {
+        if ("guest".equalsIgnoreCase(userRole)) {
+            if (allowedBoardIds == null || allowedBoardIds.isEmpty()) {
+                return new ArrayList<>();
+            }
+            return boardRepository.findByWorkspaceIdAndIdIn(workspaceId, allowedBoardIds);
+        }
+        return boardRepository.findByWorkspaceId(workspaceId);
     }
 
     public Board getBoardById(String id) {
@@ -40,9 +48,13 @@ public class BoardService {
         }
 
         Board board = Board.builder()
+                .workspaceId(request.getWorkspaceId() != null ? request.getWorkspaceId() : "ws-apex-cloud")
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .category(request.getCategory() != null ? request.getCategory() : "product")
+                .visibility(request.getVisibility() != null ? request.getVisibility() : "workspace")
+                .teamId(request.getTeamId())
+                .memberIds(request.getMemberIds() != null ? request.getMemberIds() : new ArrayList<>())
                 .columns(columns)
                 .ownerId(ownerId)
                 .createdAt(Instant.now())
@@ -57,6 +69,9 @@ public class BoardService {
         if (request.getTitle() != null) board.setTitle(request.getTitle());
         if (request.getDescription() != null) board.setDescription(request.getDescription());
         if (request.getCategory() != null) board.setCategory(request.getCategory());
+        if (request.getVisibility() != null) board.setVisibility(request.getVisibility());
+        if (request.getTeamId() != null) board.setTeamId(request.getTeamId());
+        if (request.getMemberIds() != null) board.setMemberIds(request.getMemberIds());
         if (request.getColumns() != null) board.setColumns(request.getColumns());
         board.setUpdatedAt(Instant.now());
         return boardRepository.save(board);
@@ -68,12 +83,14 @@ public class BoardService {
         boardRepository.delete(board);
     }
 
-    public Board createDefaultBoard() {
+    public Board createDefaultBoard(String workspaceId) {
         Board board = Board.builder()
                 .id("board-default")
+                .workspaceId(workspaceId != null ? workspaceId : "ws-apex-cloud")
                 .title("Core Platform Sprint 42")
                 .description("Production release sprint for microservices architecture and observability stack.")
                 .category("product")
+                .visibility("workspace")
                 .columns(getDefaultColumns())
                 .ownerId("system")
                 .createdAt(Instant.now())

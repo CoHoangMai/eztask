@@ -18,12 +18,15 @@ export const exportWorkspaceToJSON = (boards: Board[], automations: AutomationRu
     automations,
   };
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const jsonString = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `eztask-backup-${new Date().toISOString().split('T')[0]}.json`;
+  anchor.download = `eztask-workspace-backup-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(anchor);
   anchor.click();
+  document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 };
 
@@ -34,8 +37,8 @@ export const parseImportedWorkspace = async (file: File): Promise<WorkspaceExpor
   const text = await file.text();
   const parsed = JSON.parse(text);
 
-  if (!parsed.boards || !Array.isArray(parsed.boards)) {
-    throw new Error('Invalid workspace file: Missing boards array.');
+  if (!parsed.boards || !Array.isArray(parsed.boards) || parsed.boards.length === 0) {
+    throw new Error('Invalid workspace backup file: Missing or empty boards array.');
   }
 
   return parsed as WorkspaceExportData;

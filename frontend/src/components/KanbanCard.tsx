@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   CheckSquare, 
   MessageSquare, 
+  Paperclip, 
   Clock, 
   Calendar,
   AlertCircle
@@ -61,20 +62,36 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   const getPriorityBadge = (priority: Priority) => {
     switch (priority) {
       case 'urgent':
-        return <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 rounded-md border border-rose-200">Urgent</span>;
+        return <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 rounded border border-rose-200">Urgent</span>;
       case 'high':
-        return <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 rounded-md border border-amber-200">High</span>;
+        return <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 rounded border border-amber-200">High</span>;
       case 'medium':
-        return <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-blue-50 text-blue-700 rounded-md border border-blue-200">Medium</span>;
+        return <span className="px-2 py-0.5 text-[10px] font-medium tracking-wider bg-blue-50 text-blue-700 rounded border border-blue-200">Medium</span>;
       case 'low':
-        return <span className="px-2 py-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 rounded-md">Low</span>;
+      default:
+        return <span className="px-2 py-0.5 text-[10px] font-medium text-slate-600 bg-slate-100 rounded border border-slate-200">Low</span>;
+    }
+  };
+
+  const getPriorityBorderClass = (priority: Priority, customColor?: string) => {
+    if (customColor) return '';
+    switch (priority) {
+      case 'urgent':
+        return 'border-l-4 border-l-rose-500';
+      case 'high':
+        return 'border-l-4 border-l-amber-500';
+      case 'medium':
+        return 'border-l-4 border-l-blue-500';
+      case 'low':
+      default:
+        return 'border-l-4 border-l-slate-300';
     }
   };
 
   const totalChecklist = card.checklist?.length || 0;
   const completedChecklist = card.checklist?.filter(c => c.completed).length || 0;
   const isChecklistDone = totalChecklist > 0 && totalChecklist === completedChecklist;
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date() && !card.columnId.includes('done');
+  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date() && !card.columnId.toLowerCase().includes('done');
 
   return (
     <div
@@ -85,22 +102,17 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={onClick}
-      className={`group bg-white rounded-xl p-3.5 shadow-xs hover:shadow-md border cursor-pointer transition-all duration-150 relative overflow-hidden ${
+      style={card.coverColor ? { borderLeft: `4px solid ${card.coverColor}` } : {}}
+      className={`group bg-white rounded-lg p-3.5 shadow-xs hover:shadow-md border border-slate-200/90 cursor-pointer transition-all duration-150 relative overflow-hidden ${
+        getPriorityBorderClass(card.priority, card.coverColor)
+      } ${
         isDropIndicator 
-          ? 'border-t-4 border-t-blue-500 border-slate-300 scale-[1.01]' 
-          : 'border-slate-200/90 hover:border-blue-400'
+          ? 'border-t-4 border-t-blue-500 bg-blue-50/20 scale-[1.01]' 
+          : 'hover:border-slate-300 hover:translate-y-[-1px]'
       }`}
     >
-      {/* Optional Top Color Bar */}
-      {card.coverColor && (
-        <div 
-          className="absolute top-0 left-0 right-0 h-1.5" 
-          style={{ backgroundColor: card.coverColor }}
-        />
-      )}
-
       {/* Labels & Priority Row */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2 mt-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
         <div className="flex flex-wrap gap-1">
           {card.labels?.map(lbl => (
             <span
@@ -131,6 +143,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       {/* Badges & Meta info */}
       <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100 text-slate-500 text-xs">
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Due date */}
           {card.dueDate && (
             <div className={`flex items-center gap-1 text-[11px] font-medium ${
               isOverdue ? 'text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded' : 'text-slate-500'
@@ -140,6 +153,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             </div>
           )}
 
+          {/* Checklist progress */}
           {totalChecklist > 0 && (
             <div className={`flex items-center gap-1 text-[11px] font-medium ${
               isChecklistDone ? 'text-emerald-600 font-semibold' : 'text-slate-500'
@@ -149,6 +163,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             </div>
           )}
 
+          {/* Comments count */}
           {card.comments && card.comments.length > 0 && (
             <div className="flex items-center gap-1 text-[11px] text-slate-500">
               <MessageSquare size={12} />
@@ -156,6 +171,15 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             </div>
           )}
 
+          {/* Attachments */}
+          {card.attachments && card.attachments.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-slate-500">
+              <Paperclip size={12} />
+              <span>{card.attachments.length}</span>
+            </div>
+          )}
+
+          {/* Estimated hours */}
           {card.estimatedHours && (
             <div className="flex items-center gap-1 text-[11px] text-slate-400">
               <Clock size={11} />
@@ -164,6 +188,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           )}
         </div>
 
+        {/* Assignees Avatars */}
         {card.assignees && card.assignees.length > 0 && (
           <div className="flex items-center -space-x-1.5 overflow-hidden flex-shrink-0">
             {card.assignees.map(u => (
@@ -172,7 +197,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
                 src={u.avatar}
                 alt={u.name}
                 title={u.name}
-                className="inline-block w-6 h-6 rounded-full ring-2 ring-white object-cover shadow-xs"
+                className="inline-block w-5 h-5 rounded-full ring-2 ring-white object-cover shadow-xs"
               />
             ))}
           </div>

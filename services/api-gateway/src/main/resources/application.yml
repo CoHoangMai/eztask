@@ -46,7 +46,7 @@ spring:
         - id: task-service-route
           uri: ${TASK_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/tasks/**, /api/boards/**, /api/columns/**
+            - Path=/api/tasks/**, /api/boards/**, /api/columns/**, /api/workspaces/**, /api/teams/**
           filters:
             - name: AuthenticationFilter
             - name: CircuitBreaker
@@ -105,7 +105,7 @@ resilience4j:
         base-config: default
 
 jwt:
-  secret: ${JWT_SECRET:eztaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
+  secret: ${JWT_SECRET:EzTaskEnterpriseJwtSecretKeyForSpringCloudGatewayVerification2026!}
 
 management:
   endpoints:

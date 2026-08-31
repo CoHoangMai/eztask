@@ -15,7 +15,7 @@ spring:
         - id: task-service-route
           uri: ${TASK_SERVICE_URL:http://task-service:8082}
           predicates:
-            - Path=/api/tasks/**, /api/boards/**, /api/columns/**
+            - Path=/api/tasks/**, /api/boards/**, /api/columns/**, /api/workspaces/**, /api/teams/**
           filters:
             - name: AuthenticationFilter
 

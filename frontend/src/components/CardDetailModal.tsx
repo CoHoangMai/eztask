@@ -8,10 +8,9 @@ import {
   MessageSquare, 
   Check, 
   Copy,
-  Sparkles
+  Plus
 } from 'lucide-react';
 import type { CardItem, Column, Assignee, Label, Priority, ChecklistItem } from '../types/kanban';
-import { generateClientSubtasks } from '../utils/aiHelper';
 
 interface CardDetailModalProps {
   card: CardItem;
@@ -53,45 +52,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   // Labels & Assignees
   const [selectedLabels, setSelectedLabels] = useState<Label[]>(card.labels || []);
   const [selectedAssignees, setSelectedAssignees] = useState<Assignee[]>(card.assignees || []);
-  const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-
-  const handleGenerateAISubtasks = async () => {
-    setIsGeneratingSubtasks(true);
-    try {
-      // Attempt backend API if running
-      const res = await fetch('/api/ai/generate-subtasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskTitle: title, taskDescription: description })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.subtasks && Array.isArray(data.subtasks)) {
-          const newItems: ChecklistItem[] = data.subtasks.map((text: string, idx: number) => ({
-            id: `chk-ai-${Date.now()}-${idx}`,
-            text,
-            completed: false
-          }));
-          setChecklist(prev => [...prev, ...newItems]);
-          setIsGeneratingSubtasks(false);
-          return;
-        }
-      }
-    } catch {
-      // Backend not running in client-only mode, fall through to client generator
-    }
-
-    // Client-side smart subtask generator
-    const subtaskTexts = generateClientSubtasks(title);
-    const newItems: ChecklistItem[] = subtaskTexts.map((text: string, idx: number) => ({
-      id: `chk-ai-${Date.now()}-${idx}`,
-      text,
-      completed: false
-    }));
-    setChecklist(prev => [...prev, ...newItems]);
-    setIsGeneratingSubtasks(false);
-  };
 
   const handleSave = () => {
     onUpdateCard({
@@ -138,7 +99,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     );
     setChecklist(nextChecklist);
 
-    // Auto-sync checklist state immediately so automations trigger without delay
+    // Auto-sync checklist state immediately
     onUpdateCard({
       ...card,
       checklist: nextChecklist,
@@ -167,8 +128,15 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       text: newCommentText.trim(),
       createdAt: new Date().toISOString()
     };
-    setComments([...comments, newComment]);
+    const nextComments = [...comments, newComment];
+    setComments(nextComments);
     setNewCommentText('');
+
+    onUpdateCard({
+      ...card,
+      comments: nextComments,
+      updatedAt: new Date().toISOString()
+    });
   };
 
   const toggleLabel = (label: Label) => {
@@ -297,21 +265,9 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   <CheckSquare size={16} className="text-slate-600" />
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Checklist</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleGenerateAISubtasks}
-                    disabled={isGeneratingSubtasks}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md transition-colors disabled:opacity-50"
-                    title="Generate actionable subtasks with AI"
-                  >
-                    <Sparkles size={12} className={isGeneratingSubtasks ? "animate-spin" : "text-amber-500"} />
-                    <span>{isGeneratingSubtasks ? 'Generating...' : 'AI Subtasks'}</span>
-                  </button>
-                  {checklist.length > 0 && (
-                    <span className="text-xs font-semibold text-slate-500">{progressPercent}%</span>
-                  )}
-                </div>
+                {checklist.length > 0 && (
+                  <span className="text-xs font-semibold text-slate-500">{progressPercent}%</span>
+                )}
               </div>
 
               {/* Progress bar */}
@@ -364,9 +320,10 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                 <button
                   type="submit"
                   disabled={!newChecklistText.trim()}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold disabled:opacity-40"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold disabled:opacity-40"
                 >
-                  Add
+                  <Plus size={14} />
+                  <span>Add Item</span>
                 </button>
               </form>
             </div>

@@ -11,9 +11,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Label {
     private String id;
+    private String workspaceId;
     private String name;
     private String color;
     private String bg;
     private String text;
     private String border;
+    private String category;
 }

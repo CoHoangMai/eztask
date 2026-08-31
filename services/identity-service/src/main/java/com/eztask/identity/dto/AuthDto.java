@@ -16,6 +16,7 @@ public class AuthDto {
         private String email;
         private String password;
         private String role; // e.g. "Lead Architect"
+        private String department; // e.g. "Engineering"
         private String avatar;
     }
 
@@ -37,13 +38,15 @@ public class AuthDto {
         private String email;
         private String avatar;
         private String role;
+        private String department;
 
-        public UserResponse(Long id, String name, String email, String avatar, String role) {
+        public UserResponse(Long id, String name, String email, String avatar, String role, String department) {
             this.id = String.valueOf(id);
             this.name = name;
             this.email = email;
             this.avatar = avatar != null ? avatar : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
             this.role = role;
+            this.department = department;
         }
     }
 }

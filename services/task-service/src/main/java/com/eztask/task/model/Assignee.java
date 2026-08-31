@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -15,4 +18,8 @@ public class Assignee {
     private String email;
     private String avatar;
     private String role;
+    private String department;
+
+    @Builder.Default
+    private List<String> workspaceIds = new ArrayList<>();
 }

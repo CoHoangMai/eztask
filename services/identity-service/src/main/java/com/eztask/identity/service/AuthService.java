@@ -53,7 +53,8 @@ public class AuthService {
             user.getName(),
             user.getEmail(),
             user.getAvatar(),
-            user.getRole()
+            user.getRole(),
+            user.getDepartment()
         );
 
         return new AuthResponse(token, userResponse);
@@ -77,6 +78,7 @@ public class AuthService {
             .email(request.getEmail())
             .password(passwordEncoder.encode(rawPassword))
             .role(request.getRole() != null ? request.getRole() : "Software Engineer")
+            .department(request.getDepartment() != null ? request.getDepartment() : "General")
             .avatar(request.getAvatar() != null ? request.getAvatar() : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80")
             .roles(Set.of(userRole))
             .build();
@@ -97,7 +99,8 @@ public class AuthService {
             savedUser.getName(),
             savedUser.getEmail(),
             savedUser.getAvatar(),
-            savedUser.getRole()
+            savedUser.getRole(),
+            savedUser.getDepartment()
         ));
     }
 
@@ -105,6 +108,6 @@ public class AuthService {
     public UserResponse getUserProfile(String email) {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        return new UserResponse(user.getId(), user.getName(), user.getEmail(), user.getAvatar(), user.getRole());
+        return new UserResponse(user.getId(), user.getName(), user.getEmail(), user.getAvatar(), user.getRole(), user.getDepartment());
     }
 }

@@ -18,34 +18,26 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "boards")
-public class Board {
+@Document(collection = "workspaces")
+public class Workspace {
 
     @Id
     private String id;
 
-    @Indexed
-    private String workspaceId;
+    private String name;
 
-    private String title;
+    @Indexed(unique = true)
+    private String slug;
+
+    private String logo;
 
     private String description;
 
-    @Builder.Default
-    private String category = "product";
-
-    @Builder.Default
-    private String visibility = "workspace"; // "workspace" or "private"
-
-    private String teamId;
-
-    @Builder.Default
-    private List<String> memberIds = new ArrayList<>();
-
-    @Builder.Default
-    private List<BoardColumn> columns = new ArrayList<>();
-
+    @Indexed
     private String ownerId;
+
+    @Builder.Default
+    private List<WorkspaceMember> members = new ArrayList<>();
 
     @CreatedDate
     @Builder.Default

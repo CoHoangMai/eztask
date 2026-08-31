@@ -1,20 +1,57 @@
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
+
+export type UserRoleLevel = 'admin' | 'member' | 'guest';
+
+export interface WorkspaceMember {
+  userId: string;
+  role: WorkspaceRole;
+  joinedAt: string;
+  allowedBoardIds?: string[]; // Specifically for 'guest' roles (Single or Multi-board guests)
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string;
+  description?: string;
+  ownerId: string;
+  members: WorkspaceMember[];
+  createdAt: string;
+}
+
 export interface Assignee {
   id: string;
   name: string;
   avatar: string;
   email: string;
-  role: string;
+  role?: string; // Job title (e.g. Lead Architect, Product Designer)
+  department?: string;
+  workspaceIds?: string[]; // IDs of workspaces this user is part of
+}
+
+export interface Team {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  color: string;
+  icon?: string;
+  memberIds: string[];
+  createdAt?: string;
 }
 
 export interface Label {
   id: string;
+  workspaceId?: string;
   name: string;
   color: string;
   bg: string;
   text: string;
-  border: string;
+  border?: string;
+  category?: string;
 }
 
 export interface ChecklistItem {
@@ -40,6 +77,7 @@ export interface CardAttachment {
 
 export interface CardItem {
   id: string;
+  boardId: string;
   columnId: string;
   title: string;
   description?: string;
@@ -60,22 +98,34 @@ export interface Column {
   id: string;
   title: string;
   cardIds: string[];
-  limit?: number; // Optional WIP limit
+  limit?: number;
   colorAccent?: string;
 }
 
 export interface Board {
   id: string;
+  workspaceId: string; // Belongs to a specific isolated workspace/tenant
   title: string;
   description?: string;
-  category: 'product' | 'marketing' | 'operations' | 'general' | 'design';
+  category: 'product' | 'marketing' | 'operations' | 'general' | 'design' | 'sales' | 'recruiting';
+  visibility: 'workspace' | 'private';
+  memberIds?: string[];
+  teamId?: string;
   columns: Column[];
   cards: Record<string, CardItem>;
   createdAt: string;
   updatedAt: string;
 }
 
-export type ViewMode = 'kanban' | 'table' | 'calendar';
+export interface AutomationRule {
+  id: string;
+  workspaceId?: string;
+  title: string;
+  description: string;
+  triggerEvent: 'checklist_completed' | 'card_moved' | 'due_date_reached' | 'card_created';
+  actionSummary: string;
+  enabled: boolean;
+}
 
 export interface FilterState {
   searchQuery: string;
@@ -85,11 +135,17 @@ export interface FilterState {
   dueDateFilter: 'all' | 'today' | 'this_week' | 'overdue';
 }
 
-export interface AutomationRule {
+export interface AppNotification {
   id: string;
-  title: string;
-  description: string;
-  triggerEvent: 'card_created' | 'card_moved' | 'checklist_completed' | 'due_date_reached';
-  actionSummary: string;
-  enabled: boolean;
+  recipientId: string;
+  actorId?: string;
+  actorName?: string;
+  actorAvatar?: string;
+  boardId?: string;
+  taskId?: string;
+  taskTitle?: string;
+  eventType: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
 }
