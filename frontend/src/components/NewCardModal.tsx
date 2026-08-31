@@ -10,7 +10,7 @@ interface NewCardModalProps {
   availableLabels: Label[];
   availableAssignees: Assignee[];
   onClose: () => void;
-  onCreateCard: (card: Omit<CardItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onCreateCard: (card: Omit<CardItem, 'id' | 'createdAt' | 'updatedAt' | 'boardId'>) => void;
 }
 
 export const NewCardModal: React.FC<NewCardModalProps> = ({

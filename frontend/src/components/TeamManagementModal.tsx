@@ -5,11 +5,6 @@ import {
   Plus, 
   UserPlus, 
   Trash2, 
-  Check, 
-  Briefcase, 
-  Mail, 
-  ShieldCheck, 
-  Sparkles,
   Layers
 } from 'lucide-react';
 import type { Assignee, Team, UserRoleLevel } from '../types/kanban';
@@ -17,10 +12,10 @@ import type { Assignee, Team, UserRoleLevel } from '../types/kanban';
 interface TeamManagementModalProps {
   teams: Team[];
   users: Assignee[];
-  currentUser: Assignee;
+  currentUser?: Assignee;
   onClose: () => void;
   onCreateTeam: (team: Omit<Team, 'id'>) => void;
-  onUpdateTeam: (team: Team) => void;
+  onUpdateTeam?: (team: Team) => void;
   onDeleteTeam: (teamId: string) => void;
   onAddUser: (user: Omit<Assignee, 'id'>) => void;
 }
@@ -32,10 +27,8 @@ const TEAM_PRESET_COLORS = [
 export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
   teams,
   users,
-  currentUser,
   onClose,
   onCreateTeam,
-  onUpdateTeam,
   onDeleteTeam,
   onAddUser,
 }) => {

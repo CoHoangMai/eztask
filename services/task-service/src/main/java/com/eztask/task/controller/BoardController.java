@@ -27,15 +27,19 @@ public class BoardController {
     @GetMapping
     @Operation(summary = "Get all boards or boards for a specific workspace")
     public ResponseEntity<List<Board>> getAllBoards(
-            @RequestParam(required = false) String workspaceId) {
-        return ResponseEntity.ok(boardService.getAllBoards(workspaceId));
+            @RequestParam(required = false) String workspaceId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String userId = principal != null ? principal.getId() : null;
+        return ResponseEntity.ok(boardService.getAllBoards(workspaceId, userId));
     }
 
     @GetMapping("/default")
     @Operation(summary = "Get or initialize default demo board")
     public ResponseEntity<Board> getDefaultBoard(
-            @RequestParam(required = false) String workspaceId) {
-        List<Board> boards = boardService.getAllBoards(workspaceId);
+            @RequestParam(required = false) String workspaceId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String userId = principal != null ? principal.getId() : null;
+        List<Board> boards = boardService.getAllBoards(workspaceId, userId);
         if (boards.isEmpty()) {
             return ResponseEntity.ok(boardService.createDefaultBoard(workspaceId));
         }

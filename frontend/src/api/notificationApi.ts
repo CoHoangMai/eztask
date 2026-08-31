@@ -10,6 +10,8 @@ export interface NotificationListResponse {
   unreadCount: number;
 }
 
+type NotificationListener = (notification: AppNotification) => void;
+
 /**
  * Notification Service API (Spring Boot 3 + Redis + WebSockets via /api/notifications/*)
  */
@@ -53,5 +55,99 @@ export const notificationApi = {
     await apiRequest<void>('/notifications/mark-all-read', {
       method: 'PUT',
     });
+  },
+
+  /**
+   * Subscribe to real-time notification stream (WebSocket / SSE / Polling Fallback)
+   */
+  subscribeToLiveNotifications(onNotification: NotificationListener): () => void {
+    let ws: WebSocket | null = null;
+    let pollingTimer: ReturnType<typeof setInterval> | null = null;
+    let isCleanedUp = false;
+
+    const connectWebSocket = () => {
+      if (isCleanedUp) return;
+
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // In local development: ws://localhost:8080/ws or window.location.host
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.info('[NotificationWS] Connected to live notification stream');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && (data.id || data.message || data.eventType)) {
+              onNotification({
+                id: data.id || `notif-${Date.now()}`,
+                recipientId: data.recipientId || '',
+                actorName: data.actorName || 'System',
+                actorAvatar: data.actorAvatar,
+                eventType: data.eventType || 'TASK_MOVED',
+                taskTitle: data.taskTitle || '',
+                taskId: data.taskId,
+                message: data.message || 'New workspace activity',
+                read: false,
+                createdAt: data.createdAt || new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            console.debug('[NotificationWS] Non-JSON payload received:', event.data);
+          }
+        };
+
+        ws.onerror = () => {
+          // Silent fallback to polling if WebSocket fails (e.g. sandboxed iframe)
+          startPollingFallback();
+        };
+
+        ws.onclose = () => {
+          if (!isCleanedUp) {
+            setTimeout(connectWebSocket, 10000);
+          }
+        };
+      } catch (err) {
+        startPollingFallback();
+      }
+    };
+
+    const startPollingFallback = () => {
+      if (pollingTimer || isCleanedUp) return;
+      pollingTimer = setInterval(async () => {
+        try {
+          const res = await notificationApi.getNotifications();
+          if (res.notifications && res.notifications.length > 0) {
+            // Find newly arrived unread notifications
+            const latest = res.notifications.find(n => !n.read);
+            if (latest) {
+              onNotification(latest);
+            }
+          }
+        } catch {
+          // ignore transient errors
+        }
+      }, 15000);
+    };
+
+    // Attempt real-time connection
+    connectWebSocket();
+
+    // Cleanup function
+    return () => {
+      isCleanedUp = true;
+      if (ws) {
+        try {
+          ws.close();
+        } catch {}
+      }
+      if (pollingTimer) {
+        clearInterval(pollingTimer);
+      }
+    };
   }
 };

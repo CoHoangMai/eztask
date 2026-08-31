@@ -11,7 +11,6 @@ import {
   Layers, 
   Activity 
 } from 'lucide-react';
-import { isBackendAvailable } from '../api/apiClient';
 
 interface SystemStatusModalProps {
   isOnline: boolean;

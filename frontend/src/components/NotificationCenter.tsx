@@ -60,23 +60,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Poll or fetch notifications when online
-  const fetchNotifications = async () => {
+  // Initial fetch and real-time subscription when online
+  useEffect(() => {
     if (!isOnline) return;
-    try {
-      const res = await notificationApi.getNotifications();
+
+    // Fetch initial list
+    notificationApi.getNotifications().then((res) => {
       if (res.notifications && res.notifications.length > 0) {
         setNotifications(res.notifications);
       }
-    } catch {
-      // Fallback silently
-    }
-  };
+    }).catch(() => {});
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+    // Subscribe to live WebSocket / polling stream
+    const unsubscribe = notificationApi.subscribeToLiveNotifications((newNotif) => {
+      setNotifications(prev => {
+        if (prev.some(n => n.id === newNotif.id)) return prev;
+        return [newNotif, ...prev];
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [isOnline]);
 
   // Handle click outside to close dropdown

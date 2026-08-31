@@ -106,24 +106,43 @@ export async function apiRequest<T>(
  * Checks if Spring Cloud Gateway / Backend microservices are online
  */
 export const isBackendAvailable = async (): Promise<boolean> => {
+  // 1. Try direct /actuator/health endpoint on gateway proxy
+  try {
+    const res = await fetch('/actuator/health', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data && (data.status === 'UP' || data.status === 'UNKNOWN')) {
+        return true;
+      }
+    }
+  } catch {}
+
+  // 2. Try prefix-routed /api/actuator/health
   try {
     const res = await fetch(`${API_BASE_URL}/actuator/health`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(2000),
     });
-    return res.ok;
-  } catch {
-    // If actuator/health fails, try auth endpoint ping
-    try {
-      const authPing = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(1500),
-      });
-      // 401 means service is up and actively enforcing security
-      return authPing.status === 401 || authPing.ok;
-    } catch {
-      return false;
+    if (res.ok) return true;
+  } catch {}
+
+  // 3. Try open Auth Gateway route (/api/auth/me or /api/auth/login)
+  try {
+    const authPing = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(2500),
+    });
+    // 200, 401 (gateway alive and intercepting JWT), 403 indicate gateway is UP
+    if (authPing.status === 200 || authPing.status === 401 || authPing.status === 403) {
+      return true;
     }
-  }
+  } catch {}
+
+  return false;
 };

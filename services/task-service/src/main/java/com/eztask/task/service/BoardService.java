@@ -20,10 +20,30 @@ public class BoardService {
     private final TaskRepository taskRepository;
 
     public List<Board> getAllBoards(String workspaceId) {
+        return getAllBoards(workspaceId, null);
+    }
+
+    public List<Board> getAllBoards(String workspaceId, String userId) {
+        List<Board> boards;
         if (workspaceId != null && !workspaceId.isBlank()) {
-            return boardRepository.findByWorkspaceId(workspaceId);
+            boards = boardRepository.findByWorkspaceId(workspaceId);
+        } else {
+            boards = boardRepository.findAll();
         }
-        return boardRepository.findAll();
+
+        if (userId == null || userId.isBlank() || "system".equalsIgnoreCase(userId)) {
+            return boards;
+        }
+
+        return boards.stream()
+                .filter(b -> {
+                    boolean isOwner = userId.equals(b.getOwnerId());
+                    boolean isMember = b.getMemberIds() != null && b.getMemberIds().contains(userId);
+                    boolean isWorkspaceVisible = "workspace".equalsIgnoreCase(b.getVisibility()) &&
+                            (b.getMemberIds() == null || b.getMemberIds().isEmpty() || b.getMemberIds().contains(userId));
+                    return isOwner || isMember || isWorkspaceVisible;
+                })
+                .toList();
     }
 
     public List<Board> getBoardsForUserInWorkspace(String workspaceId, String userId, String userRole, List<String> allowedBoardIds) {

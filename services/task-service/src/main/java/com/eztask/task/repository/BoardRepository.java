@@ -12,5 +12,7 @@ public interface BoardRepository extends MongoRepository<Board, String> {
     List<Board> findByOwnerId(String ownerId);
     List<Board> findByWorkspaceId(String workspaceId);
     List<Board> findByWorkspaceIdAndIdIn(String workspaceId, Collection<String> ids);
+    List<Board> findByWorkspaceIdAndMemberIdsContaining(String workspaceId, String userId);
+    List<Board> findByMemberIdsContaining(String userId);
     List<Board> findByTeamId(String teamId);
 }
