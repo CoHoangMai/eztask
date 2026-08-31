@@ -2,7 +2,7 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
 
-export type UserRoleLevel = 'admin' | 'member' | 'guest';
+export type UserRoleLevel = 'admin' | 'manager' | 'member' | 'guest';
 
 export interface WorkspaceMember {
   userId: string;
@@ -30,11 +30,13 @@ export interface Assignee {
   role?: string; // Job title (e.g. Lead Architect, Product Designer)
   department?: string;
   workspaceIds?: string[]; // IDs of workspaces this user is part of
+  teamIds?: string[];
+  roleLevel?: UserRoleLevel;
 }
 
 export interface Team {
   id: string;
-  workspaceId: string;
+  workspaceId?: string;
   name: string;
   description: string;
   color: string;
@@ -77,7 +79,7 @@ export interface CardAttachment {
 
 export interface CardItem {
   id: string;
-  boardId: string;
+  boardId?: string;
   columnId: string;
   title: string;
   description?: string;

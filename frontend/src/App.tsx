@@ -36,7 +36,8 @@ import { WorkspaceMembersModal } from './components/WorkspaceMembersModal';
 import { EmptyBoardView } from './components/EmptyBoardView';
 import { CreateBoardModal } from './components/CreateBoardModal';
 import { exportWorkspaceToJSON, parseImportedWorkspace } from './utils/exportHelper';
-import { isBackendAvailable, authApi, taskApi } from './api';
+import { authApi, taskApi, workspaceApi } from './api';
+import { DataSyncService } from './services/dataSyncService';
 
 /**
  * Storage keys for persisting user workspace state in browser localStorage.
@@ -331,26 +332,38 @@ export const App: React.FC = () => {
   ]);
 
   const checkGatewayHealth = async () => {
-    const available = await isBackendAvailable();
-    setIsOnline(available);
-    if (available && isAuthenticated) {
-      try {
-        const profile = await authApi.getProfile();
-        if (profile && profile.id) {
-          setCurrentUser(profile);
-        }
-      } catch {}
-      try {
-        const liveBoards = await taskApi.getBoards();
-        if (liveBoards && liveBoards.length > 0) {
-          setBoards(liveBoards);
-        }
-      } catch {}
+    const syncResult = await DataSyncService.syncInitialData(currentWorkspaceId);
+    setIsOnline(syncResult.isBackendConnected);
+
+    if (syncResult.isBackendConnected && isAuthenticated) {
+      if (syncResult.currentUser) {
+        setCurrentUser(syncResult.currentUser);
+      }
+      if (syncResult.workspaces && syncResult.workspaces.length > 0) {
+        setWorkspaces(syncResult.workspaces);
+      }
+      if (syncResult.boards && syncResult.boards.length > 0) {
+        setBoards(syncResult.boards);
+      }
+      if (syncResult.teams && syncResult.teams.length > 0) {
+        setTeams(syncResult.teams);
+      }
     }
   };
 
   useEffect(() => {
     checkGatewayHealth();
+
+    // Periodic check every 8 seconds if offline or every 30s if online
+    const interval = setInterval(() => {
+      checkGatewayHealth();
+    }, isOnline ? 30000 : 8000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkGatewayHealth();
+      }
+    };
 
     const handleUnauthorized = () => {
       setIsAuthenticated(false);
@@ -360,10 +373,13 @@ export const App: React.FC = () => {
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isOnline, currentWorkspaceId]);
 
   // ---------------------------------------------------------------------------
   // 8. Automation Engine
@@ -458,12 +474,32 @@ export const App: React.FC = () => {
 
     setAutomationToast(`Organization "${name}" created! You are the Workspace Owner.`);
     setTimeout(() => setAutomationToast(null), 3500);
+
+    if (isOnline) {
+      workspaceApi.createWorkspace({
+        name,
+        description,
+        logo: newWs.logo,
+      }).catch(console.warn);
+      taskApi.createBoard({
+        title: `${name} Main Board`,
+        category: 'general',
+      }).catch(console.warn);
+    }
   };
 
   const handleUpdateWorkspace = (updatedWs: Workspace) => {
     setWorkspaces(prev => prev.map(w => w.id === updatedWs.id ? updatedWs : w));
     setAutomationToast(`Workspace "${updatedWs.name}" updated`);
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.updateWorkspace(updatedWs.id, {
+        name: updatedWs.name,
+        description: updatedWs.description,
+        logo: updatedWs.logo,
+      }).catch(console.warn);
+    }
   };
 
   const handleInviteMember = (email: string, role: WorkspaceRole, allowedBoardIds?: string[]) => {
@@ -499,6 +535,14 @@ export const App: React.FC = () => {
 
     setAutomationToast(`Invited ${targetUser.name} as ${role.toUpperCase()}`);
     setTimeout(() => setAutomationToast(null), 3500);
+
+    if (isOnline) {
+      workspaceApi.addMember(currentWorkspace.id, {
+        userId: targetUser.id,
+        role,
+        allowedBoardIds,
+      }).catch(console.warn);
+    }
   };
 
   const handleRemoveMember = (userId: string) => {
@@ -509,6 +553,10 @@ export const App: React.FC = () => {
     });
     setAutomationToast('Member removed from workspace');
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.removeMember(currentWorkspace.id, userId).catch(console.warn);
+    }
   };
 
   const handleChangeMemberRole = (userId: string, newRole: WorkspaceRole, allowedBoardIds?: string[]) => {
@@ -530,6 +578,13 @@ export const App: React.FC = () => {
 
     setAutomationToast(`Updated role to ${newRole}`);
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.updateMemberRole(currentWorkspace.id, userId, {
+        role: newRole,
+        allowedBoardIds,
+      }).catch(console.warn);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -670,7 +725,11 @@ export const App: React.FC = () => {
     setTimeout(() => setAutomationToast(null), 3000);
 
     if (isOnline) {
-      taskApi.createCard(currentBoard.id, finalCard).catch(console.warn);
+      taskApi.createCard(currentBoard.id, finalCard).catch((err) => {
+        console.warn('[OptimisticSync] Create card error on backend:', err);
+        setAutomationToast('Offline: saved to local workspace cache');
+        setTimeout(() => setAutomationToast(null), 3000);
+      });
     }
   };
 
@@ -691,7 +750,11 @@ export const App: React.FC = () => {
     }));
 
     if (isOnline) {
-      taskApi.updateCard(updatedCard).catch(console.warn);
+      taskApi.updateCard(updatedCard).catch((err) => {
+        console.warn('[OptimisticSync] Update card error on backend:', err);
+        setAutomationToast('Offline: changes saved locally');
+        setTimeout(() => setAutomationToast(null), 2500);
+      });
     }
   };
 
@@ -806,7 +869,11 @@ export const App: React.FC = () => {
     }));
 
     if (isOnline && movedCard) {
-      taskApi.moveCard(cardId, sourceColId, destColId, targetIndex).catch(console.warn);
+      taskApi.moveCard(cardId, sourceColId, destColId, targetIndex).catch((err) => {
+        console.warn('[OptimisticSync] Move card error on backend:', err);
+        setAutomationToast('Offline: position saved locally');
+        setTimeout(() => setAutomationToast(null), 2500);
+      });
     }
   };
 
@@ -823,18 +890,43 @@ export const App: React.FC = () => {
     setTeams(prev => [...prev, newTeam]);
     setAutomationToast(`Team "${teamData.name}" created`);
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.createTeam({
+        workspaceId: currentWorkspace.id,
+        name: teamData.name,
+        description: teamData.description,
+        color: teamData.color,
+        icon: teamData.icon,
+        memberIds: teamData.memberIds,
+      }).catch(console.warn);
+    }
   };
 
   const handleUpdateTeam = (updatedTeam: Team) => {
     setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
     setAutomationToast(`Team "${updatedTeam.name}" updated`);
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.updateTeam(updatedTeam.id, {
+        name: updatedTeam.name,
+        description: updatedTeam.description,
+        color: updatedTeam.color,
+        icon: updatedTeam.icon,
+        memberIds: updatedTeam.memberIds,
+      }).catch(console.warn);
+    }
   };
 
   const handleDeleteTeam = (teamId: string) => {
     setTeams(prev => prev.filter(t => t.id !== teamId));
     setAutomationToast('Team removed from workspace');
     setTimeout(() => setAutomationToast(null), 3000);
+
+    if (isOnline) {
+      workspaceApi.deleteTeam(teamId).catch(console.warn);
+    }
   };
 
   const handleAddWorkspaceUser = (userData: Omit<Assignee, 'id'>) => {

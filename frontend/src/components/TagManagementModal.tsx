@@ -3,10 +3,7 @@ import {
   X, 
   Tag, 
   Plus, 
-  Trash2, 
-  Check, 
-  Sparkles,
-  Palette
+  Trash2
 } from 'lucide-react';
 import type { Label } from '../types/kanban';
 

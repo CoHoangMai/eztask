@@ -4,7 +4,6 @@ import {
   Users,
   Cloud,
   CloudOff,
-  Shield
 } from 'lucide-react';
 import type { Assignee, Workspace, WorkspaceRole } from '../types/kanban';
 import { NotificationCenter } from './NotificationCenter';
@@ -35,7 +34,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   isOnline = false,
   workspaces,
   currentWorkspace,
-  currentUserRole,
   onSelectWorkspace,
   onCreateWorkspace,
   onOpenMembersModal,
@@ -111,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Notifications */}
-        <NotificationCenter onNavigateToCard={onNavigateToCard} />
+        <NotificationCenter isOnline={isOnline} onNavigateToCard={onNavigateToCard} />
 
         {/* User Persona & Profile Controls */}
         <UserDropdown 
