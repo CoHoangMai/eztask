@@ -32,7 +32,7 @@ import { BOARD_TEMPLATES, type BoardTemplate } from '../data/initialKanbanData';
 interface BoardHeaderProps {
   currentBoard?: Board | null;
   boards: Board[];
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   currentUserRole: WorkspaceRole;
   onSelectBoard: (boardId: string) => void;
   onCreateBoard: (title: string, category: Board['category'], templateId?: string, teamId?: string) => void;
@@ -185,7 +185,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                 className="absolute top-full left-0 mt-1.5 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-2 animate-in fade-in"
               >
                 <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                  <span>{currentWorkspace.name} Boards ({boards.length})</span>
+                  <span>{currentWorkspace ? currentWorkspace.name : 'Workspace'} Boards ({boards.length})</span>
                   {isGuest && <span className="text-purple-600 font-bold text-[10px]">Guest Filtered</span>}
                 </div>
 
@@ -213,7 +213,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                           <span className="text-[10px] text-slate-400 capitalize">{b.category} workflow</span>
                         </div>
                         <span className="text-[10px] text-slate-400 font-normal shrink-0">
-                          {Object.keys(b.cards).length} tasks
+                          {Object.keys(b.cards || {}).length} tasks
                         </span>
                       </button>
                     ))
@@ -230,7 +230,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
                     >
                       <Plus size={14} />
-                      <span>Create Board in {currentWorkspace.name}</span>
+                      <span>Create Board in {currentWorkspace ? currentWorkspace.name : 'Workspace'}</span>
                     </button>
                   </div>
                 ) : (
@@ -343,7 +343,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
               >
                 <div className="px-3 py-1 border-b border-slate-100 mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    {currentWorkspace.name} Backup
+                    {currentWorkspace ? currentWorkspace.name : 'Workspace'} Backup
                   </span>
                 </div>
 
@@ -588,7 +588,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   <Layout size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Create Workflow Board in {currentWorkspace.name}</h3>
+                  <h3 className="text-base font-bold text-slate-900">Create Workflow Board in {currentWorkspace ? currentWorkspace.name : 'Workspace'}</h3>
                   <p className="text-xs text-slate-500">Choose a multi-domain workflow template tailored for your organization</p>
                 </div>
               </div>

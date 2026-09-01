@@ -7,28 +7,31 @@ import {
   DollarSign, 
   Palette, 
   UserCheck, 
-  Lock,
-  Sparkles,
-  Layers,
-  Info,
-  FolderPlus,
-  ArrowRight
+  Lock, 
+  Sparkles, 
+  Layers, 
+  Info, 
+  FolderPlus, 
+  ArrowRight,
+  Building2
 } from 'lucide-react';
 import type { Workspace, WorkspaceRole } from '../types/kanban';
 import { BOARD_TEMPLATES } from '../data/initialKanbanData';
 
 interface EmptyBoardViewProps {
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   currentUserRole: WorkspaceRole;
   onCreateBoard: (title: string, category: any, templateId?: string) => void;
   onOpenCreateModal: () => void;
+  onOpenCreateWorkspaceModal?: () => void;
 }
 
 export const EmptyBoardView: React.FC<EmptyBoardViewProps> = ({
   currentWorkspace,
   currentUserRole,
   onCreateBoard,
-  onOpenCreateModal
+  onOpenCreateModal,
+  onOpenCreateWorkspaceModal
 }) => {
   const isGuest = currentUserRole === 'guest';
 
@@ -43,6 +46,46 @@ export const EmptyBoardView: React.FC<EmptyBoardViewProps> = ({
     }
   };
 
+  // Case 1: User has NO workspaces assigned/accessible
+  if (!currentWorkspace) {
+    return (
+      <div 
+        id="empty-workspace-zero-trust-view"
+        className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-900/40 text-center select-none"
+      >
+        <div className="max-w-md p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 shadow-inner">
+            <Building2 size={32} />
+          </div>
+
+          <h2 className="text-lg font-bold text-white mb-2">
+            No Workspace Membership
+          </h2>
+          
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            Under Zero-Trust organization policy, you are not currently assigned to any workspace. Create a new organization or ask an administrator to invite your account.
+          </p>
+
+          {onOpenCreateWorkspaceModal ? (
+            <button
+              onClick={onOpenCreateWorkspaceModal}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.02]"
+            >
+              <Plus size={16} />
+              <span>Create New Workspace</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 text-left">
+              <Info size={16} className="text-blue-400 shrink-0" />
+              <span>Use the Workspace Switcher in the top bar to create your organization.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Case 2: Guest with no boards assigned in this workspace
   if (isGuest) {
     return (
       <div 
@@ -59,7 +102,7 @@ export const EmptyBoardView: React.FC<EmptyBoardViewProps> = ({
           </h2>
           
           <p className="text-xs text-slate-400 leading-relaxed mb-6">
-            Your guest account in <strong className="text-slate-200">{currentWorkspace.name}</strong> currently has no assigned boards. Guest access requires explicit board permissions.
+            Your account in <strong className="text-slate-200">{currentWorkspace.name}</strong> currently has no assigned boards. Guest access requires explicit board permissions.
           </p>
 
           <div className="flex items-center gap-2 px-4 py-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 text-left">
@@ -71,6 +114,7 @@ export const EmptyBoardView: React.FC<EmptyBoardViewProps> = ({
     );
   }
 
+  // Case 3: Workspace owner/member with 0 boards created yet
   return (
     <div 
       id="empty-board-state-view"

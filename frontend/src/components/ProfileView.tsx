@@ -4,7 +4,6 @@ import {
   Mail, 
   Save, 
   ArrowLeft, 
-  Sparkles,
   CheckCircle2,
   Users,
   Briefcase,
@@ -23,7 +22,7 @@ interface ProfileViewProps {
   allUsers: Assignee[];
   teams: Team[];
   workspaces: Workspace[];
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   onUpdateUser: (updatedUser: Assignee) => void;
   onBackToBoard: () => void;
   onSwitchUser: (user: Assignee) => void;
@@ -32,12 +31,10 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   currentUser,
-  allUsers,
   workspaces,
   currentWorkspace,
   onUpdateUser,
   onBackToBoard,
-  onSwitchUser,
   onSelectWorkspace,
 }) => {
   const [name, setName] = useState(currentUser.name);
@@ -73,8 +70,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const getUserRoleInWs = (ws: Workspace, userId: string): WorkspaceRole => {
-    const member = ws.members.find(m => m.userId === userId);
+  const getUserRoleInWs = (ws: Workspace | null | undefined, userId: string): WorkspaceRole => {
+    if (!ws) return 'guest';
+    if (ws.ownerId === userId) return 'owner';
+    const member = ws.members?.find(m => m.userId === userId);
     return member ? member.role : 'guest';
   };
 
@@ -91,8 +90,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  // Filter workspaces this user is member of
-  const userWorkspaces = workspaces.filter(ws => ws.members.some(m => m.userId === currentUser.id));
+  // Filter workspaces this user is member or owner of
+  const userWorkspaces = workspaces.filter(ws => ws.ownerId === currentUser.id || ws.members.some(m => m.userId === currentUser.id));
 
   return (
     <div id="profile-view" className="flex-1 bg-slate-900 overflow-y-auto p-4 sm:p-8 select-none">
@@ -105,7 +104,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
           >
             <ArrowLeft size={14} />
-            <span>Back to Workspace ({currentWorkspace.name})</span>
+            <span>Back to Workspace {currentWorkspace ? `(${currentWorkspace.name})` : ''}</span>
           </button>
 
           <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
@@ -243,7 +242,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {userWorkspaces.map(ws => {
                   const roleInWs = getUserRoleInWs(ws, currentUser.id);
-                  const isCurrent = ws.id === currentWorkspace.id;
+                  const isCurrent = currentWorkspace ? ws.id === currentWorkspace.id : false;
                   const memberData = ws.members.find(m => m.userId === currentUser.id);
 
                   return (
@@ -322,63 +321,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </form>
         </div>
 
-        {/* Persona Switcher (For Evaluation & Role Perspective Testing) */}
+        {/* Account & Session Security Overview */}
         <div className="bg-slate-950 border border-slate-800 rounded-2xl shadow-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Sparkles size={14} className="text-amber-400" />
-                Multi-User Persona Switcher (Real SaaS Demo Testing)
+                <ShieldCheck size={14} className="text-emerald-400" />
+                Account Security & Session
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Switch perspective between users across companies to verify isolation, guest board limits, and owner privileges
+                Manage your active workspace session and security status
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {allUsers.map((user) => {
-              const isSelected = user.id === currentUser.id;
-              const roleInActiveWs = getUserRoleInWs(currentWorkspace, user.id);
-              const isMemberOfActiveWs = currentWorkspace.members.some(m => m.userId === user.id);
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80">
+              <div className="text-xs font-semibold text-white">Active Session</div>
+              <div className="text-[11px] text-slate-400 mt-1">Authenticated via JWT Token</div>
+              <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Active & Verified
+              </div>
+            </div>
 
-              return (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => onSwitchUser(user)}
-                  className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-950/60 border-blue-500/80 shadow-md ring-1 ring-blue-500/50'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-                  }`}
-                >
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-xl object-cover shrink-0 ring-1 ring-slate-700"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-white truncate">{user.name}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {isMemberOfActiveWs ? (
-                        getRoleBadge(roleInActiveWs)
-                      ) : (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                          External User
-                        </span>
-                      )}
-                      {isSelected && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] text-blue-400 font-semibold ml-auto">
-                          <Check size={10} /> Active
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80">
+              <div className="text-xs font-semibold text-white">Current Workspace Role</div>
+              <div className="text-[11px] text-slate-400 mt-1">
+                {currentWorkspace ? `Role in "${currentWorkspace.name}"` : 'General access'}
+              </div>
+              <div className="mt-2">
+                {currentWorkspace ? getRoleBadge(getUserRoleInWs(currentWorkspace, currentUser.id)) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Member</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

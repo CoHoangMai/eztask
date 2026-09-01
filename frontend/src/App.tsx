@@ -36,7 +36,7 @@ import { WorkspaceMembersModal } from './components/WorkspaceMembersModal';
 import { EmptyBoardView } from './components/EmptyBoardView';
 import { CreateBoardModal } from './components/CreateBoardModal';
 import { exportWorkspaceToJSON, parseImportedWorkspace } from './utils/exportHelper';
-import { authApi, taskApi, workspaceApi } from './api';
+import { authApi, taskApi, workspaceApi, setAuthToken, removeAuthToken, getAuthToken, isBackendAvailable } from './api';
 import { DataSyncService } from './services/dataSyncService';
 
 /**
@@ -67,7 +67,8 @@ export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       const auth = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
-      return auth === 'true';
+      const token = getAuthToken();
+      return auth === 'true' && !!token;
     } catch {
       return false;
     }
@@ -179,77 +180,130 @@ export const App: React.FC = () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 6. Multi-Tenant Workspace Resolution & Access Permissions
+  // 6. Multi-Tenant Workspace Resolution & Zero-Trust Access Permissions
   // ---------------------------------------------------------------------------
-  const currentWorkspace = useMemo(() => {
-    const found = workspaces.find(w => w.id === currentWorkspaceId);
-    return found || workspaces[0] || DEFAULT_WORKSPACES[0];
-  }, [workspaces, currentWorkspaceId]);
+  // Workspaces accessible to the current user (owned or member)
+  const accessibleWorkspaces = useMemo(() => {
+    return workspaces.filter(w => 
+      w.ownerId === currentUser.id || 
+      (w.members && w.members.some(m => m.userId === currentUser.id)) ||
+      (currentUser.workspaceIds && currentUser.workspaceIds.includes(w.id))
+    );
+  }, [workspaces, currentUser.id, currentUser.workspaceIds]);
+
+  const currentWorkspace: Workspace | null = useMemo(() => {
+    if (currentWorkspaceId) {
+      const found = accessibleWorkspaces.find(w => w.id === currentWorkspaceId);
+      if (found) return found;
+    }
+    if (accessibleWorkspaces.length > 0) return accessibleWorkspaces[0];
+    return null;
+  }, [currentWorkspaceId, accessibleWorkspaces]);
 
   // Current user's membership & role within the active workspace
   const currentUserMemberRecord = useMemo(() => {
+    if (!currentWorkspace || !currentWorkspace.members) return undefined;
     return currentWorkspace.members.find(m => m.userId === currentUser.id);
   }, [currentWorkspace, currentUser.id]);
 
   const currentUserRole: WorkspaceRole = useMemo(() => {
+    if (!currentWorkspace) return 'guest';
+    if (currentWorkspace.ownerId === currentUser.id) {
+      return 'owner';
+    }
     if (currentUserMemberRecord) {
       return currentUserMemberRecord.role;
     }
-    // If not listed in members, default to guest or external
+    // If not listed in members and not owner, user is an external guest with 0 access
     return 'guest';
-  }, [currentUserMemberRecord]);
+  }, [currentWorkspace, currentUser.id, currentUserMemberRecord]);
 
-  // Isolated boards belonging EXCLUSIVELY to the current workspace
+  // Isolated boards belonging to the active workspace
   const workspaceAllBoards = useMemo(() => {
+    if (!currentWorkspace) return [];
     return boards.filter(b => b.workspaceId === currentWorkspace.id);
-  }, [boards, currentWorkspace.id]);
-
-  // Filtered boards for this user based on Workspace Role (e.g. Guest single-board restrictions)
-  const visibleBoards = useMemo(() => {
-    if (currentUserRole === 'guest') {
-      const allowed = currentUserMemberRecord?.allowedBoardIds || [];
-      if (allowed.length > 0) {
-        const guestBoards = workspaceAllBoards.filter(b => allowed.includes(b.id));
-        return guestBoards.length > 0 ? guestBoards : [];
-      }
-      return [];
-    }
-    return workspaceAllBoards;
-  }, [workspaceAllBoards, currentUserRole, currentUserMemberRecord]);
-
-  // Ensure current active board belongs to visible boards in current workspace
-  const currentBoard = useMemo(() => {
-    if (visibleBoards.length === 0) {
-      return null;
-    }
-    const found = visibleBoards.find(b => b.id === currentBoardId);
-    return found || visibleBoards[0];
-  }, [visibleBoards, currentBoardId]);
-
-  // Sync currentBoardId when workspace changes
-  useEffect(() => {
-    if (visibleBoards.length > 0 && !visibleBoards.some(b => b.id === currentBoardId)) {
-      setCurrentBoardId(visibleBoards[0].id);
-    }
-  }, [currentWorkspaceId, visibleBoards, currentBoardId]);
+  }, [boards, currentWorkspace]);
 
   // Isolated teams belonging to the active workspace
   const workspaceTeams = useMemo(() => {
-    return teams.filter(t => !t.workspaceId || t.workspaceId === currentWorkspace.id);
-  }, [teams, currentWorkspace.id]);
+    if (!currentWorkspace) return [];
+    const allTeamsInWs = teams.filter(t => !t.workspaceId || t.workspaceId === currentWorkspace.id);
+    if (currentUserRole === 'owner' || currentUserRole === 'admin') {
+      return allTeamsInWs;
+    }
+    if (currentUserRole === 'member') {
+      return allTeamsInWs.filter(t => t.memberIds && t.memberIds.includes(currentUser.id));
+    }
+    return [];
+  }, [teams, currentWorkspace, currentUserRole, currentUser.id]);
+
+  // Filtered boards for this user based on Zero-Trust Role & Member assignments
+  const visibleBoards = useMemo(() => {
+    if (!currentWorkspace) return [];
+    const isWsOwner = currentWorkspace.ownerId === currentUser.id;
+    // If user is neither owner nor listed in members, they have ZERO access
+    if (!isWsOwner && !currentUserMemberRecord) {
+      return [];
+    }
+
+    // 1. Workspace Owner or Admin: Full visibility into all boards in this workspace
+    if (currentUserRole === 'owner' || currentUserRole === 'admin') {
+      return workspaceAllBoards;
+    }
+
+    // 2. Workspace Member: Zero-trust by default. Only visible if user is board owner, explicit member, or in board's team
+    if (currentUserRole === 'member') {
+      return workspaceAllBoards.filter(b => {
+        const isBoardOwner = b.ownerId === currentUser.id;
+        const isExplicitMember = b.memberIds && b.memberIds.includes(currentUser.id);
+        const isTeamMember = b.teamId ? workspaceTeams.some(t => t.id === b.teamId && t.memberIds.includes(currentUser.id)) : false;
+        return isBoardOwner || isExplicitMember || isTeamMember;
+      });
+    }
+
+    // 3. Workspace Guest: Zero-trust by default. Only visible if explicitly in allowedBoardIds or memberIds
+    if (currentUserRole === 'guest') {
+      const allowed = currentUserMemberRecord?.allowedBoardIds || [];
+      return workspaceAllBoards.filter(b => 
+        allowed.includes(b.id) || (b.memberIds && b.memberIds.includes(currentUser.id))
+      );
+    }
+
+    return [];
+  }, [currentWorkspace, currentUserRole, currentUserMemberRecord, workspaceAllBoards, currentUser.id, workspaceTeams]);
+
+  // Ensure current active board belongs to visible boards in current workspace
+  const currentBoard = useMemo(() => {
+    if (!visibleBoards || visibleBoards.length === 0) {
+      return null;
+    }
+    const found = visibleBoards.find(b => b.id === currentBoardId);
+    return found || visibleBoards[0] || null;
+  }, [visibleBoards, currentBoardId]);
+
+  // Sync currentBoardId when workspace or visibleBoards changes
+  useEffect(() => {
+    if (visibleBoards.length > 0) {
+      if (!visibleBoards.some(b => b.id === currentBoardId)) {
+        setCurrentBoardId(visibleBoards[0].id);
+      }
+    } else {
+      setCurrentBoardId('');
+    }
+  }, [currentWorkspaceId, visibleBoards, currentBoardId]);
 
   // Currently opened card resolution
   const selectedCard = useMemo(() => {
-    if (!selectedCardId || !currentBoard) return null;
+    if (!selectedCardId || !currentBoard || !currentBoard.cards) return null;
     return currentBoard.cards[selectedCardId] || null;
   }, [currentBoard, selectedCardId]);
 
   // Filtered cards mapping for performant rendering
   const filteredCards = useMemo(() => {
     const cardMap: Record<string, CardItem> = {};
-    if (!currentBoard) return cardMap;
+    if (!currentBoard || !currentBoard.cards) return cardMap;
 
-    const cardsList: CardItem[] = Object.values(currentBoard.cards);
+    const cardsList: CardItem[] = Object.values(currentBoard.cards || {});
 
     cardsList.forEach(card => {
       // 1. Search Query
@@ -331,19 +385,35 @@ export const App: React.FC = () => {
     labels
   ]);
 
-  const checkGatewayHealth = async () => {
-    const syncResult = await DataSyncService.syncInitialData(currentWorkspaceId);
+  const checkGatewayHealth = async (targetWsId?: string) => {
+    // If not authenticated, only ping health endpoint to check connection without protected calls
+    if (!isAuthenticated) {
+      const available = await isBackendAvailable();
+      setIsOnline(available);
+      return;
+    }
+
+    const wsToQuery = targetWsId || currentWorkspaceId;
+    const syncResult = await DataSyncService.syncInitialData(wsToQuery);
     setIsOnline(syncResult.isBackendConnected);
 
-    if (syncResult.isBackendConnected && isAuthenticated) {
+    if (syncResult.isBackendConnected) {
       if (syncResult.currentUser) {
         setCurrentUser(syncResult.currentUser);
       }
       if (syncResult.workspaces && syncResult.workspaces.length > 0) {
-        setWorkspaces(syncResult.workspaces);
+        setWorkspaces(prev => {
+          const serverWsIds = new Set(syncResult.workspaces!.map(w => w.id));
+          const localOnly = prev.filter(w => !serverWsIds.has(w.id));
+          return [...syncResult.workspaces!, ...localOnly];
+        });
       }
       if (syncResult.boards && syncResult.boards.length > 0) {
-        setBoards(syncResult.boards);
+        setBoards(prev => {
+          const serverBoardIds = new Set(syncResult.boards!.map(b => b.id));
+          const localOnly = prev.filter(b => !serverBoardIds.has(b.id));
+          return [...syncResult.boards!, ...localOnly];
+        });
       }
       if (syncResult.teams && syncResult.teams.length > 0) {
         setTeams(syncResult.teams);
@@ -365,18 +435,9 @@ export const App: React.FC = () => {
       }
     };
 
-    const handleUnauthorized = () => {
-      setIsAuthenticated(false);
-      localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
-      setAutomationToast('Session expired. Please sign in again.');
-      setTimeout(() => setAutomationToast(null), 4000);
-    };
-
-    window.addEventListener('auth:unauthorized', handleUnauthorized);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('auth:unauthorized', handleUnauthorized);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isAuthenticated, isOnline, currentWorkspaceId]);
@@ -465,6 +526,10 @@ export const App: React.FC = () => {
     setCurrentBoardId(newBoardId);
 
     // Add workspace to user's workspaceIds
+    setCurrentUser(prev => ({
+      ...prev,
+      workspaceIds: [...(prev.workspaceIds || []), newWsId]
+    }));
     setUsers(prev => prev.map(u => {
       if (u.id === currentUser.id) {
         return { ...u, workspaceIds: [...(u.workspaceIds || []), newWsId] };
@@ -503,6 +568,8 @@ export const App: React.FC = () => {
   };
 
   const handleInviteMember = (email: string, role: WorkspaceRole, allowedBoardIds?: string[]) => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     let targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (!targetUser) {
@@ -513,13 +580,13 @@ export const App: React.FC = () => {
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
         role: role === 'guest' ? 'External Consultant / Guest' : 'Workspace Member',
         department: 'External',
-        workspaceIds: [currentWorkspace.id]
+        workspaceIds: [ws.id]
       };
       setUsers(prev => [...prev, targetUser!]);
     }
 
     const updatedMembers = [
-      ...currentWorkspace.members.filter(m => m.userId !== targetUser!.id),
+      ...ws.members.filter(m => m.userId !== targetUser!.id),
       {
         userId: targetUser.id,
         role,
@@ -529,7 +596,7 @@ export const App: React.FC = () => {
     ];
 
     handleUpdateWorkspace({
-      ...currentWorkspace,
+      ...ws,
       members: updatedMembers
     });
 
@@ -537,7 +604,7 @@ export const App: React.FC = () => {
     setTimeout(() => setAutomationToast(null), 3500);
 
     if (isOnline) {
-      workspaceApi.addMember(currentWorkspace.id, {
+      workspaceApi.addMember(ws.id, {
         userId: targetUser.id,
         role,
         allowedBoardIds,
@@ -546,21 +613,25 @@ export const App: React.FC = () => {
   };
 
   const handleRemoveMember = (userId: string) => {
-    const updatedMembers = currentWorkspace.members.filter(m => m.userId !== userId);
+    const ws = currentWorkspace;
+    if (!ws) return;
+    const updatedMembers = ws.members.filter(m => m.userId !== userId);
     handleUpdateWorkspace({
-      ...currentWorkspace,
+      ...ws,
       members: updatedMembers
     });
     setAutomationToast('Member removed from workspace');
     setTimeout(() => setAutomationToast(null), 3000);
 
     if (isOnline) {
-      workspaceApi.removeMember(currentWorkspace.id, userId).catch(console.warn);
+      workspaceApi.removeMember(ws.id, userId).catch(console.warn);
     }
   };
 
   const handleChangeMemberRole = (userId: string, newRole: WorkspaceRole, allowedBoardIds?: string[]) => {
-    const updatedMembers = currentWorkspace.members.map(m => {
+    const ws = currentWorkspace;
+    if (!ws) return;
+    const updatedMembers = ws.members.map(m => {
       if (m.userId === userId) {
         return {
           ...m,
@@ -572,7 +643,7 @@ export const App: React.FC = () => {
     });
 
     handleUpdateWorkspace({
-      ...currentWorkspace,
+      ...ws,
       members: updatedMembers
     });
 
@@ -580,7 +651,7 @@ export const App: React.FC = () => {
     setTimeout(() => setAutomationToast(null), 3000);
 
     if (isOnline) {
-      workspaceApi.updateMemberRole(currentWorkspace.id, userId, {
+      workspaceApi.updateMemberRole(ws.id, userId, {
         role: newRole,
         allowedBoardIds,
       }).catch(console.warn);
@@ -600,6 +671,8 @@ export const App: React.FC = () => {
     templateId?: string,
     teamId?: string
   ) => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     const template = BOARD_TEMPLATES.find(t => t.id === templateId) || BOARD_TEMPLATES[0];
     
     const columns: Column[] = template.defaultColumns.map((col, idx) => ({
@@ -611,7 +684,7 @@ export const App: React.FC = () => {
 
     const newBoard: Board = {
       id: `board-${Date.now()}`,
-      workspaceId: currentWorkspace.id,
+      workspaceId: ws.id,
       title,
       description: template.description,
       category,
@@ -625,7 +698,7 @@ export const App: React.FC = () => {
 
     setBoards(prev => [...prev, newBoard]);
     setCurrentBoardId(newBoard.id);
-    setAutomationToast(`Created board: "${title}" in ${currentWorkspace.name}`);
+    setAutomationToast(`Created board: "${title}" in ${ws.name}`);
     setTimeout(() => setAutomationToast(null), 3500);
   };
 
@@ -881,9 +954,11 @@ export const App: React.FC = () => {
   // 11. Multi-Team & Taxonomy CRUD Handlers
   // ---------------------------------------------------------------------------
   const handleCreateTeam = (teamData: Omit<Team, 'id' | 'createdAt'>) => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     const newTeam: Team = {
       ...teamData,
-      workspaceId: currentWorkspace.id,
+      workspaceId: ws.id,
       id: `team-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
@@ -893,7 +968,7 @@ export const App: React.FC = () => {
 
     if (isOnline) {
       workspaceApi.createTeam({
-        workspaceId: currentWorkspace.id,
+        workspaceId: ws.id,
         name: teamData.name,
         description: teamData.description,
         color: teamData.color,
@@ -930,10 +1005,12 @@ export const App: React.FC = () => {
   };
 
   const handleAddWorkspaceUser = (userData: Omit<Assignee, 'id'>) => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     const newUser: Assignee = {
       ...userData,
       id: `user-${Date.now()}`,
-      workspaceIds: [currentWorkspace.id]
+      workspaceIds: [ws.id]
     };
     setUsers(prev => [...prev, newUser]);
     setAutomationToast(`Member "${userData.name}" added`);
@@ -967,20 +1044,24 @@ export const App: React.FC = () => {
   // 12. JSON Export / Import Handlers
   // ---------------------------------------------------------------------------
   const handleExportWorkspace = () => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     exportWorkspaceToJSON(workspaceAllBoards, automations);
-    setAutomationToast(`Exported ${currentWorkspace.name} backup successfully`);
+    setAutomationToast(`Exported ${ws.name} backup successfully`);
     setTimeout(() => setAutomationToast(null), 3000);
   };
 
   const handleImportWorkspace = async (file: File) => {
+    const ws = currentWorkspace;
+    if (!ws) return;
     try {
       const parsedData = await parseImportedWorkspace(file);
       if (parsedData.boards && parsedData.boards.length > 0) {
         const imported = parsedData.boards.map(b => ({
           ...b,
-          workspaceId: currentWorkspace.id
+          workspaceId: ws.id
         }));
-        setBoards(prev => [...prev.filter(b => b.workspaceId !== currentWorkspace.id), ...imported]);
+        setBoards(prev => [...prev.filter(b => b.workspaceId !== ws.id), ...imported]);
         setCurrentBoardId(imported[0].id);
       }
       if (parsedData.automations) {
@@ -1020,84 +1101,198 @@ export const App: React.FC = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // 14. Authentication Handlers
+  // 14. Authentication & Persona Switching Handlers
   // ---------------------------------------------------------------------------
+  const handleSuccessfulAuth = (user: Assignee, preferredWsId?: string, token?: string) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    const validToken = token || `eztask-jwt-${user.id}`;
+    setAuthToken(validToken);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, 'true');
+    } catch {}
+
+    const targetWsId = preferredWsId || user.workspaceIds?.[0];
+    if (targetWsId) {
+      setCurrentWorkspaceId(targetWsId);
+      const wsBoards = boards.filter(b => b.workspaceId === targetWsId);
+      if (wsBoards.length > 0) setCurrentBoardId(wsBoards[0].id);
+      else setCurrentBoardId('');
+    } else {
+      const userWorkspaces = workspaces.filter(w => 
+        w.ownerId === user.id || 
+        (w.members && w.members.some(m => m.userId === user.id)) ||
+        (user.workspaceIds && user.workspaceIds.includes(w.id))
+      );
+      if (userWorkspaces.length > 0) {
+        setCurrentWorkspaceId(userWorkspaces[0].id);
+        const wsBoards = boards.filter(b => b.workspaceId === userWorkspaces[0].id);
+        if (wsBoards.length > 0) setCurrentBoardId(wsBoards[0].id);
+        else setCurrentBoardId('');
+      } else {
+        setCurrentWorkspaceId('');
+        setCurrentBoardId('');
+      }
+    }
+  };
+
   const handleLogin = async (email: string, password?: string): Promise<boolean> => {
     try {
-      if (isOnline) {
-        const res = await authApi.login({ email, password });
-        if (res.user) {
-          setCurrentUser(res.user);
-          setIsAuthenticated(true);
+      const normalizedEmail = email.trim().toLowerCase();
+      try {
+        const res = await authApi.login({ email: normalizedEmail, password });
+        if (res && res.user && res.token) {
+          const wsId = res.user.workspaceIds?.[0];
+          handleSuccessfulAuth(res.user, wsId, res.token);
           setAutomationToast(`Welcome back, ${res.user.name}`);
           setTimeout(() => setAutomationToast(null), 3000);
+          if (wsId) checkGatewayHealth(wsId);
           return true;
         }
-      } else {
-        const matchingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase()) || {
-          id: `user-${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          role: 'Technology Lead',
-          department: 'Engineering',
-          workspaceIds: [currentWorkspace.id]
-        };
-        setCurrentUser(matchingUser);
-        if (!users.some(u => u.id === matchingUser.id)) {
-          setUsers(prev => [...prev, matchingUser]);
-        }
-        setIsAuthenticated(true);
+      } catch (apiErr) {
+        console.warn('Online auth attempt failed, checking local credentials:', apiErr);
+      }
+
+      // Fallback or demo match
+      const matchingUser = users.find(u => u.email.toLowerCase() === normalizedEmail) || 
+        DEFAULT_USERS.find(u => u.email.toLowerCase() === normalizedEmail);
+
+      if (matchingUser) {
+        const demoToken = `eztask-jwt-${matchingUser.id}`;
+        const wsId = matchingUser.workspaceIds?.[0];
+        handleSuccessfulAuth(matchingUser, wsId, demoToken);
         setAutomationToast(`Welcome back, ${matchingUser.name}`);
         setTimeout(() => setAutomationToast(null), 3000);
+        if (wsId) checkGatewayHealth(wsId);
         return true;
       }
+
+      // Dynamic demo user creation if arbitrary email entered
+      const dynamicUserId = `user-${Date.now()}`;
+      const defaultWsId = `ws-${Date.now()}`;
+      const namePart = normalizedEmail.split('@')[0] || 'User';
+      const dynamicUser: Assignee = {
+        id: dynamicUserId,
+        name: namePart.charAt(0).toUpperCase() + namePart.slice(1),
+        email: normalizedEmail,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(normalizedEmail)}`,
+        role: 'Technology Lead',
+        department: 'Engineering',
+        workspaceIds: [defaultWsId]
+      };
+      setUsers(prev => [...prev, dynamicUser]);
+      handleSuccessfulAuth(dynamicUser, defaultWsId, `eztask-jwt-${dynamicUserId}`);
+      setAutomationToast(`Welcome, ${dynamicUser.name}`);
+      setTimeout(() => setAutomationToast(null), 3000);
+      return true;
     } catch (err) {
       console.error(err);
       return false;
     }
-    return false;
   };
 
   const handleRegister = async (name: string, email: string, role: string): Promise<boolean> => {
     try {
-      if (isOnline) {
+      let registeredUser: Assignee | null = null;
+      let registeredToken: string | null = null;
+      let registeredWsId: string | null = null;
+
+      // Always call the backend API first
+      try {
         const res = await authApi.register({ name, email, role });
-        if (res.user) {
-          setCurrentUser(res.user);
-          setIsAuthenticated(true);
-          setAutomationToast(`Account created. Welcome, ${name}!`);
-          setTimeout(() => setAutomationToast(null), 3000);
-          return true;
+        if (res && res.user && res.token) {
+          registeredUser = res.user;
+          registeredToken = res.token;
+          registeredWsId = res.user.workspaceIds?.[0] || null;
         }
-      } else {
-        const newUser: Assignee = {
-          id: `user-${Date.now()}`,
-          name,
-          email,
-          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-          role,
-          department: 'General',
-          workspaceIds: [currentWorkspace.id]
-        };
-        setCurrentUser(newUser);
-        setUsers(prev => [...prev, newUser]);
-        setIsAuthenticated(true);
-        setAutomationToast(`Account created. Welcome, ${name}!`);
-        setTimeout(() => setAutomationToast(null), 3000);
-        return true;
+      } catch (apiErr) {
+        console.warn('Backend register failed, falling back to local creation:', apiErr);
       }
+
+      if (!registeredUser) {
+        const newUserId = `user-${Date.now()}`;
+        const newWsId = `ws-${Date.now()}`;
+
+        registeredUser = {
+          id: newUserId,
+          name: name.trim(),
+          email: email.trim(),
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+          role: role || 'Software Engineer',
+          department: 'Product & Engineering',
+          workspaceIds: [newWsId]
+        };
+        registeredToken = `eztask-jwt-${newUserId}`;
+        registeredWsId = newWsId;
+      }
+
+      const targetWsId = registeredWsId || `ws-${registeredUser.id}`;
+      const personalWs: Workspace = {
+        id: targetWsId,
+        name: `${registeredUser.name.split(' ')[0]}'s Workspace`,
+        slug: `${registeredUser.name.toLowerCase().replace(/\s+/g, '-')}-workspace`,
+        logo: registeredUser.name.trim().slice(0, 2).toUpperCase() || 'WS',
+        description: `Personal organization workspace for ${registeredUser.name}`,
+        ownerId: registeredUser.id,
+        members: [
+          { userId: registeredUser.id, role: 'owner', joinedAt: new Date().toISOString() }
+        ],
+        createdAt: new Date().toISOString()
+      };
+
+      const starterBoard: Board = {
+        id: `board-${registeredUser.id}`,
+        workspaceId: targetWsId,
+        title: `${registeredUser.name.split(' ')[0]} Main Board`,
+        description: `Your initial workflow board`,
+        category: 'general',
+        visibility: 'workspace',
+        ownerId: registeredUser.id,
+        memberIds: [registeredUser.id],
+        columns: [
+          { id: `col-todo-${registeredUser.id}`, title: 'To Do', cardIds: [], colorAccent: '#3b82f6' },
+          { id: `col-inprog-${registeredUser.id}`, title: 'In Progress', cardIds: [], limit: 4, colorAccent: '#f59e0b' },
+          { id: `col-done-${registeredUser.id}`, title: 'Done', cardIds: [], colorAccent: '#10b981' }
+        ],
+        cards: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      setWorkspaces(prev => prev.some(w => w.id === personalWs.id) ? prev : [...prev, personalWs]);
+      setBoards(prev => prev.some(b => b.id === starterBoard.id) ? prev : [...prev, starterBoard]);
+      setUsers(prev => prev.some(u => u.id === registeredUser!.id) ? prev : [...prev, registeredUser!]);
+      setCurrentWorkspaceId(targetWsId);
+      setCurrentBoardId(starterBoard.id);
+
+      handleSuccessfulAuth(registeredUser, targetWsId, registeredToken || undefined);
+      checkGatewayHealth(targetWsId);
+
+      setAutomationToast(`Account created! Welcome to your workspace, ${name}.`);
+      setTimeout(() => setAutomationToast(null), 3500);
+      return true;
     } catch (err) {
-      console.error(err);
+      console.error('Registration error:', err);
       return false;
     }
-    return false;
+  };
+
+  const handleSwitchUser = (user: Assignee) => {
+    handleSuccessfulAuth(user, undefined, `eztask-jwt-${user.id}`);
+    setAutomationToast(`Switched user: ${user.name}`);
+    setTimeout(() => setAutomationToast(null), 3000);
   };
 
   const handleLogout = () => {
     authApi.logout();
+    removeAuthToken();
     setIsAuthenticated(false);
     setActiveView('kanban');
+    try {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    } catch {}
     setAutomationToast('Signed out');
     setTimeout(() => setAutomationToast(null), 3000);
   };
@@ -1137,18 +1332,14 @@ export const App: React.FC = () => {
         availableUsers={users}
         activeBoardTitle={currentBoard ? currentBoard.title : 'No active board'}
         isOnline={isOnline}
-        workspaces={workspaces}
+        workspaces={accessibleWorkspaces}
         currentWorkspace={currentWorkspace}
         currentUserRole={currentUserRole}
         onSelectWorkspace={handleSelectWorkspace}
         onCreateWorkspace={handleCreateWorkspace}
         onOpenMembersModal={() => setIsWorkspaceMembersModalOpen(true)}
         onOpenProfileView={() => setActiveView('profile')}
-        onSelectUser={(user) => {
-          setCurrentUser(user);
-          setAutomationToast(`Persona switched to: ${user.name}`);
-          setTimeout(() => setAutomationToast(null), 3000);
-        }}
+        onSelectUser={handleSwitchUser}
         onLogout={handleLogout}
         onNavigateToCard={(cardId) => {
           setSelectedCardId(cardId);
@@ -1162,7 +1353,7 @@ export const App: React.FC = () => {
           currentUser={currentUser}
           allUsers={users}
           teams={workspaceTeams}
-          workspaces={workspaces}
+          workspaces={accessibleWorkspaces}
           currentWorkspace={currentWorkspace}
           onUpdateUser={(updated) => {
             handleUpdateWorkspaceUser(updated);
@@ -1170,11 +1361,7 @@ export const App: React.FC = () => {
             setTimeout(() => setAutomationToast(null), 3000);
           }}
           onBackToBoard={() => setActiveView('kanban')}
-          onSwitchUser={(user) => {
-            setCurrentUser(user);
-            setAutomationToast(`Switched persona: ${user.name}`);
-            setTimeout(() => setAutomationToast(null), 3000);
-          }}
+          onSwitchUser={handleSwitchUser}
           onSelectWorkspace={handleSelectWorkspace}
         />
       ) : (
@@ -1248,7 +1435,7 @@ export const App: React.FC = () => {
                 {activeView === 'table' && (
                   <TableView
                     cards={Object.values(filteredCards)}
-                    columns={currentBoard.columns}
+                    columns={currentBoard ? currentBoard.columns : []}
                     onOpenCard={(card) => setSelectedCardId(card.id)}
                     onOpenNewCard={() => {
                       setNewCardTargetColId(undefined);

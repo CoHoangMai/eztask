@@ -16,7 +16,7 @@ interface NavbarProps {
   activeBoardTitle: string;
   isOnline?: boolean;
   workspaces: Workspace[];
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   currentUserRole: WorkspaceRole;
   onSelectWorkspace: (workspace: Workspace) => void;
   onCreateWorkspace: (name: string, description: string, logo: string) => void;
@@ -82,8 +82,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Workspace Members Quick Button */}
         <button
           id="navbar-members-btn"
-          onClick={onOpenMembersModal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-800 transition-colors cursor-pointer"
+          disabled={!currentWorkspace}
+          onClick={() => {
+            if (currentWorkspace) onOpenMembersModal();
+          }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-800 transition-colors cursor-pointer"
           title="Manage Workspace Organization & Members"
         >
           <Users size={14} className="text-blue-400" />

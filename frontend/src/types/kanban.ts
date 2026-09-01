@@ -111,6 +111,7 @@ export interface Board {
   description?: string;
   category: 'product' | 'marketing' | 'operations' | 'general' | 'design' | 'sales' | 'recruiting';
   visibility: 'workspace' | 'private';
+  ownerId?: string;
   memberIds?: string[];
   teamId?: string;
   columns: Column[];

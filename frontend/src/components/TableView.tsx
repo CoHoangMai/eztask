@@ -16,15 +16,18 @@ interface TableViewProps {
 }
 
 export const TableView: React.FC<TableViewProps> = ({
-  cards,
-  columns,
+  cards = [],
+  columns = [],
   onOpenCard,
   onOpenNewCard
 }) => {
   const [sortField, setSortField] = useState<keyof CardItem>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const columnMap = columns.reduce((acc, c) => {
+  const safeColumns = columns || [];
+  const safeCards = cards || [];
+
+  const columnMap = safeColumns.reduce((acc, c) => {
     acc[c.id] = c.title;
     return acc;
   }, {} as Record<string, string>);
@@ -38,7 +41,7 @@ export const TableView: React.FC<TableViewProps> = ({
     }
   };
 
-  const sortedCards = [...cards].sort((a, b) => {
+  const sortedCards = [...safeCards].sort((a, b) => {
     let valA = a[sortField];
     let valB = b[sortField];
 

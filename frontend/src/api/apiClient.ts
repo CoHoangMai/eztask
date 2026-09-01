@@ -28,12 +28,20 @@ export interface ApiResponse<T> {
 
 export const getAuthToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token || token === 'undefined' || token === 'null' || token.trim() === '') {
+    return null;
+  }
+  return token;
 };
 
-export const setAuthToken = (token: string): void => {
+export const setAuthToken = (token?: string | null): void => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(TOKEN_KEY, token);
+  if (!token || token === 'undefined' || token === 'null' || token.trim() === '') {
+    localStorage.removeItem(TOKEN_KEY);
+  } else {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
 };
 
 export const removeAuthToken = (): void => {
@@ -68,10 +76,7 @@ export async function apiRequest<T>(
     });
 
     if (response.status === 401) {
-      removeAuthToken();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-      }
+      console.warn(`[apiClient] 401 Unauthorized encountered on ${cleanEndpoint}`);
       throw new Error('Unauthorized: Session expired or invalid token.');
     }
 
@@ -103,45 +108,40 @@ export async function apiRequest<T>(
 }
 
 /**
- * Checks if Spring Cloud Gateway / Backend microservices are online
+ * Checks if Backend microservices are online
  */
 export const isBackendAvailable = async (): Promise<boolean> => {
-  // 1. Try direct /actuator/health endpoint on gateway proxy
   try {
-    const res = await fetch('/actuator/health', {
+    const res = await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(2000),
     });
     if (res.ok) {
       const data = await res.json().catch(() => null);
-      if (data && (data.status === 'UP' || data.status === 'UNKNOWN')) {
+      if (data && (data.status === 'healthy' || data.status === 'UP')) {
         return true;
       }
     }
   } catch {}
 
-  // 2. Try prefix-routed /api/actuator/health
   try {
-    const res = await fetch(`${API_BASE_URL}/actuator/health`, {
+    const res = await fetch('/health', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(1500),
     });
     if (res.ok) return true;
   } catch {}
 
-  // 3. Try open Auth Gateway route (/api/auth/me or /api/auth/login)
+  // Fallback to /actuator/health
   try {
-    const authPing = await fetch(`${API_BASE_URL}/auth/me`, {
+    const res = await fetch('/actuator/health', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(1500),
     });
-    // 200, 401 (gateway alive and intercepting JWT), 403 indicate gateway is UP
-    if (authPing.status === 200 || authPing.status === 401 || authPing.status === 403) {
-      return true;
-    }
+    if (res.ok) return true;
   } catch {}
 
   return false;

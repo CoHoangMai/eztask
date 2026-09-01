@@ -68,12 +68,15 @@ export const notificationApi = {
     const connectWebSocket = () => {
       if (isCleanedUp) return;
 
-      try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // In local development: ws://localhost:8080/ws or window.location.host
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const customWsUrl = (import.meta as any).env?.VITE_WS_URL;
+      if (!customWsUrl) {
+        // Use clean polling / internal event stream by default
+        startPollingFallback();
+        return;
+      }
 
-        ws = new WebSocket(wsUrl);
+      try {
+        ws = new WebSocket(customWsUrl);
 
         ws.onopen = () => {
           console.info('[NotificationWS] Connected to live notification stream');

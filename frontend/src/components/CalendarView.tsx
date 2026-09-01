@@ -13,12 +13,13 @@ interface CalendarViewProps {
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
-  cards,
+  cards = [],
   onOpenCard,
   onOpenNewCard
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date('2026-08-20'));
 
+  const safeCards = cards || [];
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -39,7 +40,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   ];
 
   // Group cards by day string YYYY-MM-DD
-  const cardsByDate = cards.reduce((acc, card) => {
+  const cardsByDate = safeCards.reduce((acc, card) => {
     if (card.dueDate) {
       if (!acc[card.dueDate]) acc[card.dueDate] = [];
       acc[card.dueDate].push(card);

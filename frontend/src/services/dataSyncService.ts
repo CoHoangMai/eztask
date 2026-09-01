@@ -1,4 +1,4 @@
-import { isBackendAvailable } from '../api';
+import { isBackendAvailable, getAuthToken, removeAuthToken } from '../api';
 import { authApi } from '../api/authApi';
 import { taskApi } from '../api/taskApi';
 import { workspaceApi } from '../api/workspaceApi';
@@ -26,24 +26,41 @@ export class DataSyncService {
       return { isBackendConnected: false };
     }
 
+    const token = getAuthToken();
+    if (!token) {
+      // Backend is online, but user is not logged in yet
+      return { isBackendConnected: true };
+    }
+
     try {
       // 1. Fetch current profile
       let currentUser: Assignee | undefined;
       try {
         currentUser = await authApi.getProfile();
-      } catch (e) {
-        console.info('[SyncService] Profile fetch skipped (guest or unauthenticated)');
+      } catch (e: any) {
+        if (e?.message && (e.message.includes('401') || e.message.includes('Unauthorized'))) {
+          // Invalid or expired token on backend - remove and exit cleanly
+          removeAuthToken();
+          return { isBackendConnected: true };
+        }
       }
 
-      // 2. Fetch all workspaces
-      const workspaces = await workspaceApi.getWorkspaces();
+      // 2. Fetch all workspaces accessible to user
+      let workspaces: Workspace[] = [];
+      try {
+        workspaces = await workspaceApi.getWorkspaces();
+      } catch (e) {
+        console.warn('[SyncService] Failed to fetch workspaces:', e);
+      }
       
-      const targetWorkspaceId = activeWorkspaceId || (workspaces.length > 0 ? workspaces[0].id : undefined);
+      const targetWorkspaceId = (activeWorkspaceId && workspaces.some(w => w.id === activeWorkspaceId))
+        ? activeWorkspaceId
+        : (workspaces.length > 0 ? workspaces[0].id : activeWorkspaceId);
 
       // 3. Fetch boards for target workspace or all boards
       let boards: Board[] = [];
       try {
-        boards = await taskApi.getBoards();
+        boards = await taskApi.getBoards(targetWorkspaceId);
       } catch (e) {
         console.warn('[SyncService] Failed to fetch boards:', e);
       }
@@ -67,7 +84,7 @@ export class DataSyncService {
       };
     } catch (error) {
       console.error('[SyncService] Synchronization error:', error);
-      return { isBackendConnected: false };
+      return { isBackendConnected: true };
     }
   }
 
