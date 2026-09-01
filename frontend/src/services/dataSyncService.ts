@@ -1,4 +1,4 @@
-import { isBackendAvailable } from '../api';
+import { isBackendAvailable, getAuthToken, removeAuthToken } from '../api';
 import { authApi } from '../api/authApi';
 import { taskApi } from '../api/taskApi';
 import { workspaceApi } from '../api/workspaceApi';
@@ -26,26 +26,45 @@ export class DataSyncService {
       return { isBackendConnected: false };
     }
 
+    const token = getAuthToken();
+    if (!token) {
+      // Backend is online, but user is not logged in yet
+      return { isBackendConnected: true };
+    }
+
     try {
       // 1. Fetch current profile
       let currentUser: Assignee | undefined;
       try {
         currentUser = await authApi.getProfile();
-      } catch (e) {
-        console.info('[SyncService] Profile fetch skipped (guest or unauthenticated)');
+      } catch (e: any) {
+        if (e?.message && (e.message.includes('401') || e.message.includes('Unauthorized'))) {
+          // Invalid or expired token on backend - remove and exit cleanly
+          removeAuthToken();
+          return { isBackendConnected: true };
+        }
       }
 
-      // 2. Fetch all workspaces
-      const workspaces = await workspaceApi.getWorkspaces();
-      
-      const targetWorkspaceId = activeWorkspaceId || (workspaces.length > 0 ? workspaces[0].id : undefined);
-
-      // 3. Fetch boards for target workspace or all boards
-      let boards: Board[] = [];
+      // 2. Fetch all workspaces accessible to user
+      let workspaces: Workspace[] = [];
       try {
-        boards = await taskApi.getBoards();
+        workspaces = await workspaceApi.getWorkspaces();
       } catch (e) {
-        console.warn('[SyncService] Failed to fetch boards:', e);
+        console.warn('[SyncService] Failed to fetch workspaces:', e);
+      }
+      
+      const targetWorkspaceId = (activeWorkspaceId && workspaces.some(w => w.id === activeWorkspaceId))
+        ? activeWorkspaceId
+        : (workspaces.length > 0 ? workspaces[0].id : undefined);
+
+      // 3. Fetch boards for target workspace
+      let boards: Board[] = [];
+      if (targetWorkspaceId) {
+        try {
+          boards = await taskApi.getBoards(targetWorkspaceId);
+        } catch (e) {
+          console.warn('[SyncService] Failed to fetch boards:', e);
+        }
       }
 
       // 4. Fetch teams for target workspace
@@ -61,13 +80,13 @@ export class DataSyncService {
       return {
         isBackendConnected: true,
         currentUser,
-        workspaces: workspaces.length > 0 ? workspaces : undefined,
-        boards: boards.length > 0 ? boards : undefined,
-        teams: teams.length > 0 ? teams : undefined,
+        workspaces: Array.isArray(workspaces) ? workspaces : [],
+        boards: boards.length > 0 ? boards : [],
+        teams: teams.length > 0 ? teams : [],
       };
     } catch (error) {
       console.error('[SyncService] Synchronization error:', error);
-      return { isBackendConnected: false };
+      return { isBackendConnected: true };
     }
   }
 

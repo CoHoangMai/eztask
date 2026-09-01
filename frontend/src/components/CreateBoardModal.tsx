@@ -13,7 +13,7 @@ import type { Board, Team, Workspace } from '../types/kanban';
 import { BOARD_TEMPLATES, type BoardTemplate } from '../data/initialKanbanData';
 
 interface CreateBoardModalProps {
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   teams: Team[];
   onClose: () => void;
   onCreateBoard: (title: string, category: Board['category'], templateId?: string, teamId?: string) => void;
@@ -65,7 +65,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Create Board in {currentWorkspace.name}
+                Create Board in {currentWorkspace ? currentWorkspace.name : 'Workspace'}
               </h3>
               <p className="text-xs text-slate-500">
                 Select a workflow template or start with a custom blank layout

@@ -67,11 +67,12 @@ export const normalizeBackendTask = (raw: any): CardItem => {
  */
 export const taskApi = {
   /**
-   * Get all boards
+   * Get all boards (optionally filtered by workspaceId)
    */
-  async getBoards(): Promise<Board[]> {
+  async getBoards(workspaceId?: string): Promise<Board[]> {
     try {
-      const raw = await apiRequest<Board[]>('/boards', { method: 'GET' });
+      const url = workspaceId ? `/boards?workspaceId=${encodeURIComponent(workspaceId)}` : '/boards';
+      const raw = await apiRequest<Board[]>(url, { method: 'GET' });
       return Array.isArray(raw) ? raw : [];
     } catch {
       return [];

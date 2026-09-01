@@ -3,12 +3,9 @@ import {
   LogOut, 
   ChevronDown, 
   ShieldCheck, 
-  Check, 
-  Settings,
-  Sparkles 
+  Settings
 } from 'lucide-react';
 import type { Assignee } from '../types/kanban';
-import { DEFAULT_USERS } from '../data/initialKanbanData';
 
 interface UserDropdownProps {
   currentUser: Assignee;
@@ -20,8 +17,6 @@ interface UserDropdownProps {
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({
   currentUser,
-  availableUsers = DEFAULT_USERS,
-  onSelectUser,
   onOpenProfileView,
   onLogout,
 }) => {
@@ -94,46 +89,6 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Quick Persona / Role Switcher (For Testing & Demo) */}
-          <div className="p-3 border-b border-slate-800/80 bg-slate-900/40">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Sparkles size={11} className="text-amber-400" />
-                Team Personas
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium">Quick switch</span>
-            </div>
-
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {availableUsers.map((usr) => {
-                const isActive = usr.id === currentUser.id;
-                return (
-                  <button
-                    key={usr.id}
-                    onClick={() => {
-                      onSelectUser(usr);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full p-2 rounded-xl text-left transition-colors flex items-center justify-between gap-2 text-xs cursor-pointer ${
-                      isActive 
-                        ? 'bg-blue-950/70 text-blue-200 font-medium border border-blue-700/80' 
-                        : 'hover:bg-slate-900 text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img src={usr.avatar} alt={usr.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-semibold truncate leading-tight">{usr.name}</div>
-                        <div className="text-[9px] text-slate-400 truncate leading-tight">{usr.role}</div>
-                      </div>
-                    </div>
-                    {isActive && <Check size={13} className="text-blue-400 shrink-0" />}
-                  </button>
-                );
-              })}
             </div>
           </div>
 

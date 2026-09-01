@@ -10,12 +10,13 @@ import {
   User as UserIcon, 
   Eye, 
   X,
+  Lock
 } from 'lucide-react';
 import type { Workspace, WorkspaceRole, Assignee } from '../types/kanban';
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   currentUser: Assignee;
   onSelectWorkspace: (workspace: Workspace) => void;
   onCreateWorkspace: (name: string, description: string, logo: string) => void;
@@ -38,6 +39,17 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Strict Zero-Trust Isolation: NEVER trust the raw prop, always enforce user ownership/membership
+  const safeWorkspaces = React.useMemo(() => {
+    if (!currentUser || !currentUser.id) return [];
+    return (workspaces || []).filter(ws => {
+      if (!ws) return false;
+      const isOwner = ws.ownerId === currentUser.id;
+      const isMember = Array.isArray(ws.members) && ws.members.some(m => m.userId === currentUser.id);
+      return isOwner || isMember;
+    });
+  }, [workspaces, currentUser?.id]);
+
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,9 +62,13 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getUserRoleInWs = (ws: Workspace): WorkspaceRole => {
+  const getUserRoleInWs = (ws: Workspace | null): WorkspaceRole => {
+    if (!ws || !ws.members) return 'guest';
     const member = ws.members.find(m => m.userId === currentUser.id);
-    if (!member) return 'guest';
+    if (!member) {
+      if (ws.ownerId === currentUser.id) return 'owner';
+      return 'guest';
+    }
     return member.role;
   };
 
@@ -83,6 +99,8 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     setIsOpen(false);
   };
 
+  const hasAccess = safeWorkspaces.length > 0;
+
   return (
     <div className="relative select-none" ref={dropdownRef}>
       {/* Trigger Button */}
@@ -92,20 +110,32 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl transition-all cursor-pointer shadow-xs max-w-[240px] sm:max-w-[280px]"
       >
-        <span className="w-6 h-6 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold shrink-0">
-          {currentWorkspace.logo || 'WS'}
+        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 border ${
+          hasAccess
+            ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
+            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+        }`}>
+          {currentWorkspace ? (currentWorkspace.logo || 'WS') : (hasAccess ? <Building2 size={13} /> : <Lock size={12} />)}
         </span>
         <div className="text-left min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-bold text-white truncate leading-tight">
-              {currentWorkspace.name}
+              {currentWorkspace ? currentWorkspace.name : (hasAccess ? 'Select Workspace' : 'No Workspaces')}
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            {getRoleBadge(currentRole)}
-            <span className="text-[10px] text-slate-400 truncate">
-              {currentWorkspace.members.length} members
-            </span>
+            {currentWorkspace ? (
+              <>
+                {getRoleBadge(currentRole)}
+                <span className="text-[10px] text-slate-400 truncate">
+                  {currentWorkspace.members?.length || 0} members
+                </span>
+              </>
+            ) : (
+              <span className="text-[10px] text-slate-400 truncate">
+                {safeWorkspaces.length} available
+              </span>
+            )}
           </div>
         </div>
         <ChevronDown size={14} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -119,9 +149,9 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Your Workspaces ({workspaces.length})
+                    Your Workspaces ({safeWorkspaces.length})
                   </span>
-                  <p className="text-[10px] text-slate-500">Completely isolated data tenants</p>
+                  <p className="text-[10px] text-slate-500">Zero-trust isolated organizations</p>
                 </div>
                 <button
                   type="button"
@@ -136,54 +166,69 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 
               {/* Workspaces List */}
               <div className="max-h-60 overflow-y-auto py-1 space-y-1">
-                {workspaces.map((ws) => {
-                  const isSelected = ws.id === currentWorkspace.id;
-                  const role = getUserRoleInWs(ws);
-                  return (
-                    <button
-                      key={ws.id}
-                      type="button"
-                      onClick={() => {
-                        onSelectWorkspace(ws);
-                        setIsOpen(false);
-                      }}
-                      className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-blue-950/60 border-blue-500/50 shadow-xs'
-                          : 'bg-slate-900/50 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <span className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[11px] font-bold shrink-0">
-                          {ws.logo || 'WS'}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-white truncate">{ws.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {getRoleBadge(role)}
-                            <span className="text-[10px] text-slate-500">
-                              {ws.members.length} members
-                            </span>
+                {safeWorkspaces.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 space-y-2">
+                    <div className="w-8 h-8 mx-auto rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+                      <Lock size={14} />
+                    </div>
+                    <p className="font-semibold text-slate-300">No Workspace Access</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Under Zero-Trust policy, you do not belong to any workspace. Ask an admin to invite your account or create a new workspace.
+                    </p>
+                  </div>
+                ) : (
+                  safeWorkspaces.map((ws) => {
+                    const isSelected = currentWorkspace ? ws.id === currentWorkspace.id : false;
+                    const role = getUserRoleInWs(ws);
+                    return (
+                      <button
+                        key={ws.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectWorkspace(ws);
+                          setIsOpen(false);
+                        }}
+                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-950/60 border-blue-500/50 shadow-xs'
+                            : 'bg-slate-900/50 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[11px] font-bold shrink-0">
+                            {ws.logo || 'WS'}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-white truncate">{ws.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {getRoleBadge(role)}
+                              <span className="text-[10px] text-slate-500">
+                                {ws.members?.length || 0} members
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      {isSelected && <Check size={14} className="text-blue-400 shrink-0" />}
-                    </button>
-                  );
-                })}
+                        {isSelected && <Check size={14} className="text-blue-400 shrink-0" />}
+                      </button>
+                    );
+                  })
+                )}
               </div>
 
               {/* Action Buttons */}
               <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
+                  disabled={!currentWorkspace}
                   onClick={() => {
-                    onOpenMembersModal();
-                    setIsOpen(false);
+                    if (currentWorkspace) {
+                      onOpenMembersModal();
+                      setIsOpen(false);
+                    }
                   }}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-800"
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-slate-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-800"
                 >
                   <Users size={13} className="text-blue-400" />
                   <span>Members & Access</span>

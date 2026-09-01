@@ -16,7 +16,7 @@ interface NavbarProps {
   activeBoardTitle: string;
   isOnline?: boolean;
   workspaces: Workspace[];
-  currentWorkspace: Workspace;
+  currentWorkspace: Workspace | null;
   currentUserRole: WorkspaceRole;
   onSelectWorkspace: (workspace: Workspace) => void;
   onCreateWorkspace: (name: string, description: string, logo: string) => void;
@@ -69,12 +69,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         />
 
         {/* Active Board Breadcrumb */}
-        <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
-          <span className="text-slate-600">/</span>
-          <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-slate-300 border border-slate-800 font-medium truncate max-w-[180px]">
-            {activeBoardTitle}
-          </span>
-        </div>
+        {currentWorkspace && (
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
+            <span className="text-slate-600">/</span>
+            <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-slate-300 border border-slate-800 font-medium truncate max-w-[180px]">
+              {activeBoardTitle}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Right Controls */}
@@ -82,12 +84,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Workspace Members Quick Button */}
         <button
           id="navbar-members-btn"
-          onClick={onOpenMembersModal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-800 transition-colors cursor-pointer"
-          title="Manage Workspace Organization & Members"
+          disabled={!currentWorkspace}
+          onClick={() => {
+            if (currentWorkspace) onOpenMembersModal();
+          }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-800 transition-colors cursor-pointer"
+          title={currentWorkspace ? "Manage Workspace Organization & Members" : "No Workspace Access"}
         >
           <Users size={14} className="text-blue-400" />
-          <span className="hidden sm:inline">Workspace Access</span>
+          <span className="hidden sm:inline">{currentWorkspace ? 'Workspace Access' : 'No Workspace'}</span>
         </button>
 
         {/* Sync Status Badge */}

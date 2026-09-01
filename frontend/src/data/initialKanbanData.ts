@@ -298,6 +298,9 @@ export const INITIAL_BOARDS: Board[] = [
     description: 'Multi-region Kubernetes migration, zero-trust perimeter, and SOC2 compliance.',
     category: 'product',
     visibility: 'workspace',
+    ownerId: 'user-1',
+    memberIds: ['user-1', 'user-2', 'user-3', 'user-5'],
+    teamId: 'team-infra',
     createdAt: '2026-08-01T08:00:00.000Z',
     updatedAt: '2026-08-20T08:00:00.000Z',
     columns: [
@@ -469,6 +472,9 @@ export const INITIAL_BOARDS: Board[] = [
     description: 'Building developer SDKs, CLI tools, and interactive API documentation.',
     category: 'product',
     visibility: 'workspace',
+    ownerId: 'user-1',
+    memberIds: ['user-1', 'user-2', 'user-3'],
+    teamId: 'team-eng',
     createdAt: '2026-08-05T09:00:00.000Z',
     updatedAt: '2026-08-20T08:00:00.000Z',
     columns: [
@@ -555,6 +561,9 @@ export const INITIAL_BOARDS: Board[] = [
     description: 'ISO-8583 banking switch, Visa/Mastercard processing, and real-time fraud mitigation.',
     category: 'product',
     visibility: 'workspace',
+    ownerId: 'user-5',
+    memberIds: ['user-5', 'user-4', 'user-3', 'user-1'],
+    teamId: 'team-fintech',
     createdAt: '2026-08-01T08:00:00.000Z',
     updatedAt: '2026-08-20T08:00:00.000Z',
     columns: [
@@ -652,6 +661,9 @@ export const INITIAL_BOARDS: Board[] = [
     description: 'Design tokens, Figma typography scales, 3D icon renders, and brand guidelines.',
     category: 'design',
     visibility: 'workspace',
+    ownerId: 'user-2',
+    memberIds: ['user-2', 'user-1'],
+    teamId: 'team-design',
     createdAt: '2026-08-01T08:00:00.000Z',
     updatedAt: '2026-08-20T08:00:00.000Z',
     columns: [

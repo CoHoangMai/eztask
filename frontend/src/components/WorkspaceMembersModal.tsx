@@ -15,7 +15,7 @@ import {
 import type { Workspace, WorkspaceRole, Assignee, Board } from '../types/kanban';
 
 interface WorkspaceMembersModalProps {
-  workspace: Workspace;
+  workspace: Workspace | null;
   allUsers: Assignee[];
   workspaceBoards: Board[];
   currentUser: Assignee;
@@ -39,6 +39,8 @@ export const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({
   onRemoveMember,
   onChangeMemberRole,
 }) => {
+  if (!workspace) return null;
+
   const [activeTab, setActiveTab] = useState<'members' | 'settings'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
